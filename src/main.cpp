@@ -1,16 +1,9 @@
 #include <iostream>
-#include <fstream>
-#include <vector>
-int main(int argc, char *argv[]) {
-    std::ifstream input("sw.mkv", std::ios::binary | std::ios::ate);
-    std::streamsize size = input.tellg();
-    input.seekg(0, std::ios::beg);
+#include "input/decomposer.h"
+#include <libavfilter/avfilter.h>
 
-    std::vector<char> buffer(size);
-    if(input.read(buffer.data(), size)) {
-        for(auto i : buffer) {
-            std::cout << i;
-        }
-    }
+int main(int argc, char *argv[]) {
+    Decomposer *in = new Decomposer("sw.mkv");    
+    
     return 0; 
 }
