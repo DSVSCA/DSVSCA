@@ -20,10 +20,16 @@ class Decomposer {
 private:
     std::vector<char> buffer;
 
-    static AVFilterGraph *filter_graph;
-    static AVFilterContext *abuffer_ctx;
+    static AVFilterGraph *f_graph;
+    static AVFilterContext *abuffer_ctx; 
     
+    static AVFormatContext *ic;   
+    static AVStream *audio_stream;
+
     static AVFrame *oframe;
+
+    static int init_filter_graph();
+
 public:
     Decomposer(std::string fileName, bool verbose);
     

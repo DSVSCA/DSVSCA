@@ -8,9 +8,12 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
 }
+
+AVFormatContext *Decomposer::ic = NULL;
+AVStream *Decomposer::audio_stream = NULL;
+AVFilterGraph *Decomposer::f_graph;
 Decomposer::Decomposer(std::string fileName, bool verbose) {
     // TODO: Add error checking for fileName
-
     avcodec_register_all();
     av_register_all();
     avformat_network_init();
@@ -19,7 +22,6 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
     if(verbose)
       std::cout << "Loading " << fileName << std::endl;
 
-    AVFormatContext *ic = NULL;
     char *filename = new char[fileName.length() + 1];
     strcpy(filename, fileName.c_str());
     if(avformat_open_input(&ic, filename, NULL, NULL) < 0) {
@@ -53,7 +55,7 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
         av_log(NULL, AV_LOG_ERROR, "%s: no decoder found\n", ic->filename);
     }
     
-    AVStream *audio_stream = ic->streams[audio_stream_index];
+    audio_stream = ic->streams[audio_stream_index];
     audio_stream->discard = AVDISCARD_DEFAULT;
     
     AVCodecContext *avcctx = audio_stream->codec; 
@@ -69,4 +71,17 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
         std::cout << "# Channels: " << avcctx->channels << std::endl;
     }
     // at this point we should be able to init a filter graph
+    init_filter_graph();
+}
+
+int Decomposer::init_filter_graph() {
+    f_graph = avfilter_graph_alloc();
+    if(!f_graph) {
+        av_log(NULL, AV_LOG_ERROR, "FILTER GRAPH: unable to create filter graph: out of memory!\n");
+        return -1;
+    }
+    
+    
+
+    return 0;
 }
