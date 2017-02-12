@@ -25,7 +25,7 @@ private:
     
     static AVFrame *oframe;
 public:
-    Decomposer(std::string fileName);
+    Decomposer(std::string fileName, bool verbose);
     
     std::vector<char> *getBuffer();
 
