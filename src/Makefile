@@ -1,5 +1,10 @@
-DSVSCA:
-	g++ main.cpp "input/decomposer.cpp" -lavformat -lavcodec -lavfilter -lavutil -lpthread -lswresample -lswscale -o DSVSCA
+default:
+	$(MAKE) -C ./input
+	$(MAKE) -C ./openal-src
 
-debug:
-	g++ -g main.cpp "input/decomposer.cpp" -lavformat -lavcodec -lavfilter -lavutil -lpthread -lswresample -lswscale -o DSVSCA_debug
+openal:
+	$(MAKE) -C ./openal-src
+
+clean:
+	$(MAKE) -C ./input -f Makefile clean
+	$(MAKE) -C ./openal-src -f Makefile clean
