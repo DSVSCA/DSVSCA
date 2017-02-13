@@ -11,7 +11,13 @@ extern "C" {
 
 AVFormatContext *Decomposer::ic = NULL;
 AVStream *Decomposer::audio_stream = NULL;
-AVFilterGraph *Decomposer::f_graph;
+AVFilterGraph *Decomposer::filter_graph;
+char Decomposer::strbuf[512];
+AVFilterContext *Decomposer::abuffer_ctx = NULL;
+AVFilterContext *Decomposer::channelsplit_ctx = NULL;
+//AVFilterContext *Decomposer::abuffersink_ctx = NULL;
+std::vector<AVFilterContext*> Decomposer::abuffersinks_ctx = std::vector<AVFilterContext*>(6);
+
 Decomposer::Decomposer(std::string fileName, bool verbose) {
     // TODO: Add error checking for fileName
     avcodec_register_all();
@@ -63,7 +69,7 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
     if(!avcctx->channel_layout)
       avcctx->channel_layout = av_get_default_channel_layout(avcctx->channels);
     if(!avcctx->channel_layout)   
-      av_log(NULL, AV_LOG_ERROR, "unable to guess cahnnel layout\n");
+      av_log(NULL, AV_LOG_ERROR, "unable to guess chnnel layout\n");
     if(verbose) { 
         std::cout << "Channel layout was successfully found." << std::endl;
         std::cout << "Here is some more info about it: " << std::endl;
@@ -75,13 +81,135 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
 }
 
 int Decomposer::init_filter_graph() {
-    f_graph = avfilter_graph_alloc();
-    if(!f_graph) {
+    filter_graph = avfilter_graph_alloc();
+    if(!filter_graph) {
         av_log(NULL, AV_LOG_ERROR, "FILTER GRAPH: unable to create filter graph: out of memory!\n");
         return -1;
     }
     
+    std::cout << std::endl;
+    std::cout << "Beginning creation of the filter graph" << std::endl;
+
+    int error;
+    
+    init_abuffer_ctx();
+    init_channelsplit_ctx();
+    init_abuffersinks_ctx();
     
 
+    // Split into all the channels
+    // FL
+    avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 0);
+    
+    // FR
+    avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 1);
+
+    // FC
+    avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 2);
+
+    // LFE 
+    avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 3);
+
+    // BL
+    avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 4);
+
+    // BR
+    avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 5);
+
+    // Place back into our buffer sink
+    // FL
+    avfilter_link(channelsplit_ctx, 0, abuffersinks_ctx[0], 0);
+    
+    // FR 
+    avfilter_link(channelsplit_ctx, 1, abuffersinks_ctx[1], 0);
+    
+    // FC
+    avfilter_link(channelsplit_ctx, 2, abuffersinks_ctx[2], 0);
+    
+    // LFE
+    avfilter_link(channelsplit_ctx, 3, abuffersinks_ctx[3], 0);
+    
+    // BL
+    avfilter_link(channelsplit_ctx, 4, abuffersinks_ctx[4], 0);
+    
+    // BR
+    avfilter_link(channelsplit_ctx, 5, abuffersinks_ctx[5], 0);
+
+    
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "error linking filter graph\n");
+        return error;
+    }
+
+    error = avfilter_graph_config(filter_graph, NULL);
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "error configuring filter graph\n");
+        return error;
+    }
+    std::cout << "Graph has been created!" << std::endl;
+    return 0;
+}
+
+
+int Decomposer::init_abuffer_ctx() {
+    AVFilter *abuffer = avfilter_get_by_name("abuffer");
+    
+    AVCodecContext *avcctx = audio_stream->codec;
+    AVRational time_base = audio_stream->time_base;
+    
+    // Create an abuffer filter
+    snprintf(strbuf, sizeof(strbuf),
+             "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64, 
+             time_base.num, time_base.den, avcctx->sample_rate,
+             av_get_sample_fmt_name(avcctx->sample_fmt),
+             avcctx->channel_layout);
+
+    fprintf(stderr, "abuffer: %s\n", strbuf);
+    int error = avfilter_graph_create_filter(&abuffer_ctx, abuffer,
+                NULL, strbuf, NULL, filter_graph);
+
+    if (error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "error initializing abuffer filter\n");
+        return error;
+    }
+
+    return error;
+}
+
+int Decomposer::init_channelsplit_ctx() {
+    AVFilter *channelsplit = avfilter_get_by_name("channelsplit");
+    
+    snprintf(strbuf, sizeof(strbuf), 
+             "channel_layout=FL+FR+FC+LFE+BL+BR");
+
+    fprintf(stderr, "channelsplit: %s\n", strbuf);
+    int error = avfilter_graph_create_filter(&channelsplit_ctx, channelsplit,
+                "csplit", strbuf, NULL, filter_graph);
+
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "error initializing channelsplit filter\n");
+        return error;
+    }
+
+    return error;
+}
+
+int Decomposer::init_abuffersinks_ctx() {
+    AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
+    
+    std::cout << "abuffersinks: ";
+    for(int i = 0; i < 6; i++) {
+        int error = avfilter_graph_create_filter(&abuffersinks_ctx[i], abuffersink,
+                    NULL, NULL, NULL, filter_graph);
+        
+        std::cout << i;
+        if(error < 0) {
+            av_log(NULL, AV_LOG_ERROR, "unable to create abuffersink filter %d\n", i);
+            return error;
+        }
+    }
+    
+    std::cout << std::endl;
+    
     return 0;
 }
