@@ -2,5 +2,5 @@ language: cpp
 compiler: gcc
 before_install:
   - sudo apt-get update
-  - sudo apt-get install ffmpeg
+  - sudo apt-get install ffmpeg libopenal-dev libalut-dev
 script: make
