@@ -103,61 +103,27 @@ int Decomposer::init_filter_graph(AVCodecContext *avcctx) {
     std::cout << "Beginning creation of the filter graph" << std::endl;
 
     int error;
-     
+ 
+    AVFilter *abuffer = avfilter_get_by_name("abuffer");
+    AVFilter *abuffers
+
+    AVFilterInOut *outputs = avfilter_inout_alloc();
+    AVFilterInOut *inputs = avfilter_inout_alloc();
+
     error = init_abuffer_ctx();
-    if(error >= 0) error = init_channelsplit_ctx();
+    //if(error >= 0) error = init_channelsplit_ctx();
     if(error >= 0) error = init_abuffersinks_ctx();
     
     if(error < 0) return error;
-    
-    /*
-    // Split into all the channels
-    // FL
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 0);
-    
-    // FR
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 1);
-
-    // FC
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 2);
-
-    // LFE 
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 3);
-
-    // BL
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 4);
-
-    // BR
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 5);
-
-    // Place back into our buffer sink
-    // FL
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 0, abuffersinks_ctx[0], 0);
-    
-    // FR 
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 1, abuffersinks_ctx[1], 0);
-    
-    // FC
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 2, abuffersinks_ctx[2], 0);
-    
-    // LFE
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 3, abuffersinks_ctx[3], 0);
-    
-    // BL
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 4, abuffersinks_ctx[4], 0);
-    
-    // BR
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 5, abuffersinks_ctx[5], 0);
-
-    */
-    
-
-
+   
     if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "error linking filter graph\n");
         return error;
     }
-    
+  
+    /* endpoints of filter graph */
+    outputs->name = av_strdup("in");
+
     error = avfilter_graph_config(filter_graph, NULL);
     if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "error configuring filter graph\n");
