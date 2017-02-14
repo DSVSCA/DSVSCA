@@ -28,7 +28,9 @@ private:
     
     // FL, FR, FC, LFE, BL, BR
     static std::vector<AVFilterContext*> abuffersinks_ctx;
-    static AVFilterContext *FL_abuffersink_ctx;
+    
+    static AVFilterContext *abuffersink_ctx; // temp
+
 
     static AVFormatContext *ic;   
     static AVStream *audio_stream;
@@ -36,20 +38,19 @@ private:
     static AVFrame *oframe;
 
     static int init_filter_graph(AVCodecContext *avcctx);
-    static int init_abuffer_ctx();
-    static int init_channelsplit_ctx();
-
-    static int stream_packets(AVCodecContext *avcctx);
+    
+    static int init_abuffer_ctx(AVFilter *abuffer);
+    static int init_channelsplit_ctx(AVFilter *channelsplit);
+    static int init_abuffersinks_ctx(AVFilter *abuffersink);
+    
 
     static char strbuf[512];
 
-    static int audio_decode_frame(AVPacket *packet, AVFrame *frame);
 public:
     Decomposer(std::string fileName, bool verbose);
     
     std::vector<char> *getBuffer();
     
-    static int init_abuffersinks_ctx();
 };
 
 #endif
