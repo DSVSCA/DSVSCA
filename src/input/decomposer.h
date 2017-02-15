@@ -44,9 +44,11 @@ private:
     static int init_abuffer_ctx();
     static int init_abuffersink_ctx();
     static int init_channelsplit_ctx(); 
+   
+    static int audio_stream_index;
     
     static void stream();
-
+    static void print_frame(const AVFrame *frame);
     static char strbuf[512];
 
 public:

@@ -17,6 +17,7 @@ char Decomposer::strbuf[512];   // Send filter graph args through this
 
 AVFormatContext *Decomposer::format_ctx = NULL;  // Format I/O Context ????
 AVStream *Decomposer::audio_stream = NULL;  // Stream structure 
+int Decomposer::audio_stream_index = 0;
 AVCodecContext *Decomposer::decoder_ctx = NULL;  // Main API structure
 
 
@@ -42,6 +43,63 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
     
     init_target_file(fileName);
     init_filter_graph();
+
+
+    AVPacket packet;
+    AVFrame *frame = av_frame_alloc();
+    AVFrame *filt_frame = av_frame_alloc();
+    int got_frame;
+    int ret = 0;
+    while(1) {
+            std::cout << "New Frame!" << std::endl;
+            if((ret = av_read_frame(format_ctx, &packet)) < 0)
+                break;
+            if(packet.stream_index == audio_stream_index) {
+                avcodec_get_frame_defaults(frame);
+                got_frame = 0;
+                ret = avcodec_decode_audio4(decoder_ctx, frame, &got_frame, &packet);
+                if(ret < 0) {
+                    av_log(NULL, AV_LOG_ERROR, "Error decoding audio\n");
+                    continue;
+                }
+                std::cout << "Frame is an audio frame!" << std::endl;
+                if(got_frame) {
+                    std::cout << "got frame success!" << std::endl;
+                    /* push audio data from decoded frame through filter grapher */
+                    if(av_buffersrc_add_frame_flags(abuffer_ctx, frame, 0) < 0) {
+                        av_log(NULL, AV_LOG_ERROR, "Error while feeding into filter graph!\n");
+                        break;
+                    }
+                    
+                    /* pull it the rest of the way through ;) */
+                    while(1) {
+                        ret = av_buffersink_get_frame(abuffersink_ctx, filt_frame);
+                        
+                        std::cout << "Status after filter graph: " << ret << std::endl;
+                        if(ret < 0)
+                            break;
+                        std::cout << "Preparing to print" << std::endl;
+                        print_frame(filt_frame);
+                        av_frame_unref(filt_frame);
+                    }
+                }
+            }
+            av_free_packet(&packet);
+    }
+
+}
+
+void Decomposer::print_frame(const AVFrame *frame) {
+    const int n = frame->nb_samples * av_get_channel_layout_nb_channels(av_frame_get_channel_layout(frame));
+    const uint16_t *p     = (uint16_t*)frame->data[0];
+    const uint16_t *p_end = p + n;
+    
+    while(p < p_end) {
+        fputc(*p    & 0xff, stdout);
+        fputc(*p>>8 & 0xff, stdout);
+        p++;
+    }
+    fflush(stdout);
 }
 
 int Decomposer::init_target_file(std::string fileName) { 
@@ -64,7 +122,7 @@ int Decomposer::init_target_file(std::string fileName) {
         return error;
     }
     
-      int audio_stream_index = av_find_best_stream(format_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
+    audio_stream_index = av_find_best_stream(format_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
    
     if(audio_stream_index < 0) {
         av_log(NULL, AV_LOG_ERROR, "No audio stream found in the input file\n");
