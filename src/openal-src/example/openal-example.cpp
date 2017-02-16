@@ -192,7 +192,11 @@ int main(int argc, char **argv)
 			bufferData, wave->dataSize, wave->sampleRate);
 	TEST_ERROR("failed to load buffer data");
 #else
+#ifndef __APPLE__
 	alutLoadWAVFile(al_filename, &format, &data, &size, &freq, &loop);
+#else
+	alutLoadWAVFile(al_filename, &format, &data, &size, &freq);
+#endif
 	TEST_ERROR("loading wav file");
 
 	alBufferData(buffer, format, data, size, freq);
@@ -214,6 +218,7 @@ int main(int argc, char **argv)
 
     while (elapsed_ms < duration_ms) {
         alGetSourcei(source, AL_SOURCE_STATE, &source_state);
+        if (source_state != AL_PLAYING) alSourcePlay(source);
 
         const float degree_pos = 360 * (elapsed_ms / duration_ms);
         const float rad_pos = 2 * 3.1415926 * (elapsed_ms / duration_ms);
