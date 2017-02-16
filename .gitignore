@@ -27,3 +27,7 @@
 *.exe
 *.out
 *.app
+
+src/openal-src/dependcies/openal*
+src/openal-src/dependcies/freealut*
+src/openal-src/dependcies/master*

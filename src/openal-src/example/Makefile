@@ -15,7 +15,7 @@ all: $(APP)
 	$(CC) -std=c++11 $(CFLAGS) -c $< -o $@ $(LDLIBS)
 
 $(APP): $(OBJS)
-	$(CC) -std=c++11 $(CFLAGS) $(OBJS) -o $@ $(LDLIBS)
+	$(CC) -std=c++11 $(CFLAGS) $(LIBS) $(OBJS) -o $@ $(LDLIBS)
 
 clean:
 	-rm -f $(OBJS) $(APP)
