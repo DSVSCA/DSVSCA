@@ -79,7 +79,8 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
                         if(ret < 0)
                             break;
                         std::cout << "Preparing to print" << std::endl;
-                        print_frame(filt_frame);
+                        std::cout << "==================" << std::endl;
+                        //print_frame(filt_frame);
                         av_frame_unref(filt_frame);
                     }
                 }
