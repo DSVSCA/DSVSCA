@@ -2,9 +2,6 @@ default:
 	$(MAKE) -C ./input
 	$(MAKE) -C ./openal-src
 
-make-deps:
-	$(MAKE) -C ./openal-src -f Makefile make-deps
-
 install-deps:
 	$(MAKE) -C ./openal-src -f Makefile install-deps
 

@@ -1,11 +1,5 @@
 CC=g++
-LDLIBS?=-lopenal
-ifeq ($(LIBAUDIO),1)
-CFLAGS+=-DLIBAUDIO
-LDLIBS+=-laudio
-else
-LDLIBS+=-lalut
-endif
+LDLIBS?=-lopenal -lalut
 APP:=openal-example
 OBJS:= $(APP).o
 OS := $(shell uname)
