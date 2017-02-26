@@ -19,6 +19,8 @@ class Decomposer {
 
 private:
     std::vector<char> buffer;
+    
+    static AVCodecContext *decoder_ctx;
 
     static AVFilterGraph *filter_graph;
 
@@ -28,28 +30,32 @@ private:
     
     // FL, FR, FC, LFE, BL, BR
     static std::vector<AVFilterContext*> abuffersinks_ctx;
-    static AVFilterContext *FL_abuffersink_ctx;
+    
+    static AVFilterContext *abuffersink_ctx; // temp
 
-    static AVFormatContext *ic;   
+
+    static AVFormatContext *format_ctx;   
     static AVStream *audio_stream;
 
     static AVFrame *oframe;
 
-    static int init_filter_graph(AVCodecContext *avcctx);
+    static int init_target_file(std::string fileName);
+    static int init_filter_graph(); 
     static int init_abuffer_ctx();
-    static int init_channelsplit_ctx();
-
-    static int stream_packets(AVCodecContext *avcctx);
-
+    static int init_abuffersink_ctx();
+    static int init_channelsplit_ctx(); 
+   
+    static int audio_stream_index;
+    
+    static void stream();
+    static void print_frame(const AVFrame *frame);
     static char strbuf[512];
 
-    static int audio_decode_frame(AVPacket *packet, AVFrame *frame);
 public:
     Decomposer(std::string fileName, bool verbose);
     
     std::vector<char> *getBuffer();
     
-    static int init_abuffersinks_ctx();
 };
 
 #endif

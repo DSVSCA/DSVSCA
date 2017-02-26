@@ -14,8 +14,12 @@ extern "C" {
 
 char Decomposer::strbuf[512];   // Send filter graph args through this
 
-AVFormatContext *Decomposer::ic = NULL;  // Format I/O Context ????
+
+AVFormatContext *Decomposer::format_ctx = NULL;  // Format I/O Context ????
 AVStream *Decomposer::audio_stream = NULL;  // Stream structure 
+int Decomposer::audio_stream_index = 0;
+AVCodecContext *Decomposer::decoder_ctx = NULL;  // Main API structure
+
 
 AVFrame *Decomposer::oframe = NULL; // Describes decoded (raw) audio/video 
 
@@ -23,173 +27,234 @@ AVFilterGraph *Decomposer::filter_graph;  // Holds filter steps
 
 AVFilterContext *Decomposer::abuffer_ctx = NULL; // Buffers audio frames to expose to filter chain
 AVFilterContext *Decomposer::channelsplit_ctx = NULL;  // Splits channels into multiple output streams
-
+AVFilterContext *Decomposer::abuffersink_ctx = NULL;
 // Buffer audio streams and make available at the end of a filter chain. 6 here for a 5.1
 // channel audio setup
 std::vector<AVFilterContext*> Decomposer::abuffersinks_ctx = std::vector<AVFilterContext*>(6); 
 
-
-
-Decomposer::Decomposer(std::string fileName, bool verbose) {
-    // TODO: Add error checking for fileName
+Decomposer::Decomposer(std::string fileName, bool verbose) {  
+    std::cout << "Initializing libav* " << std::endl;
     avcodec_register_all();
     av_register_all();
     avformat_network_init();
     avfilter_register_all();
     
-    if(verbose)
-      std::cout << "Loading " << fileName << std::endl;
-
-    char *filename = new char[fileName.length() + 1];
-    strcpy(filename, fileName.c_str());
-    if(avformat_open_input(&ic, filename, NULL, NULL) < 0) {
-        av_log(NULL, AV_LOG_ERROR, "error opening %s\n", filename);
-        // TODO: throw an exception
-    }
-
-    if (avformat_find_stream_info(ic, NULL) < 0) {
-        av_log(NULL, AV_LOG_ERROR, "%s: could not find codec parameters\n", filename);
-        //TODO: throw an error
-        std::cout << "Error on stream info";
-    }
+    std::cout << "Initializing input file" << fileName << std::endl;
     
-    // discard all the streams, we don't care about the video and will save audio stream later
-    for(int i = 0; i < ic->nb_streams; i++)
-        ic->streams[i]->discard = AVDISCARD_ALL;
+    init_target_file(fileName);
+    init_filter_graph();
 
-    AVCodec *decoder = NULL;
-    int audio_stream_index = av_find_best_stream(ic, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
-    
-    // There should be 1 audio stream? 
-    if(verbose) 
-        std::cout << "Index of audio stream: " << audio_stream_index << std::endl;
 
-    if(audio_stream_index < 0) {
-        av_log(NULL, AV_LOG_ERROR, "%s: no audio stream found\n", ic->filename);
-        //TODO throw exception
-    }    
+    AVPacket packet;
+    AVFrame *frame = av_frame_alloc();
+    AVFrame *filt_frame = av_frame_alloc();
+    int got_frame;
+    int ret = 0;
+    while(1) {
+        if((ret = av_read_frame(format_ctx, &packet)) < 0)
+            break; 
+        if(packet.stream_index == audio_stream_index) { 
+            avcodec_get_frame_defaults(frame);
+            got_frame = 0;
+            ret = avcodec_decode_audio4(decoder_ctx, frame, &got_frame, &packet);
+            
+            if(ret < 0) {
+                av_log(NULL, AV_LOG_ERROR, "Error decoding audio\n");
+                continue;
+            }
 
-    if(!decoder) {
-        av_log(NULL, AV_LOG_ERROR, "%s: no decoder found\n", ic->filename);
+            std::cout << "New audio frame!" << std::endl;
+            if(got_frame) {
+
+                std::cout << "Pushing the frame into a buffer!" << std::endl;
+                /* push audio data from decoded frame through filter grapher */
+                if(av_buffersrc_add_frame_flags(abuffer_ctx, frame, 0) < 0) {
+                    av_log(NULL, AV_LOG_ERROR, "Error while feeding into filter graph!\n");
+                    break;
+                }
+                    
+                /* pull it the rest of the way through ;) */
+
+                std::cout << "Getting the frame out of the buffer!" << std::endl;
+                while(1) {
+                    ret = av_buffersink_get_frame(abuffersink_ctx, filt_frame);
+                        
+                    if(ret < 0) {
+                        std::cout << "End of frame!" << std::endl << std::endl;
+                        std::cout << "==================" << std::endl <<  std::endl;
+                        break; 
+                    }
+                    //std::cout << "Preparing to print" << std::endl;
+                    //print_frame(filt_frame);
+                    av_frame_unref(filt_frame);
+                }
+            }
+        }
+        /* Reduce, reuse, recycle your packets! */ 
+        av_free_packet(&packet);
     }
-    
-    audio_stream = ic->streams[audio_stream_index];
-    audio_stream->discard = AVDISCARD_DEFAULT;
-    
-    AVCodecContext *avcctx = audio_stream->codec; 
-
-    if(!avcctx->channel_layout)
-      avcctx->channel_layout = av_get_default_channel_layout(avcctx->channels);
-    if(!avcctx->channel_layout)   
-      av_log(NULL, AV_LOG_ERROR, "unable to guess chnnel layout\n");
-    if(verbose) { 
-        std::cout << "Channel layout was successfully found." << std::endl;
-        std::cout << "Here is some more info about it: " << std::endl;
-        std::cout << "Layout: " << avcctx->channel_layout << std::endl;
-        std::cout << "# Channels: " << avcctx->channels << std::endl;
-    }
-    // at this point we should be able to init a filter graph
-    init_filter_graph(avcctx);
 }
 
-int Decomposer::init_filter_graph(AVCodecContext *avcctx) {
+void Decomposer::print_frame(const AVFrame *frame) {
+    const int n = frame->nb_samples * av_get_channel_layout_nb_channels(av_frame_get_channel_layout(frame));
+    const uint16_t *p     = (uint16_t*)frame->data[0];
+    const uint16_t *p_end = p + n;
+    
+    while(p < p_end) {
+        fputc(*p    & 0xff, stdout);
+        fputc(*p>>8 & 0xff, stdout);
+        p++;
+    }
+    fflush(stdout);
+}
+
+int Decomposer::init_target_file(std::string fileName) { 
+    AVCodec *decoder = NULL;    // Provides codec information and decoder info
+    char *filename = new char[fileName.length() + 1];
+    strcpy(filename, fileName.c_str());
+
+    int error;
+    error = avformat_open_input(&format_ctx, filename, NULL, NULL);
+    
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "error opening %s\n", filename);
+        return error;
+    }
+
+    error = avformat_find_stream_info(format_ctx, NULL);
+
+    if (error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "%s: could not find codec parameters\n", filename);
+        return error;
+    }
+    
+    audio_stream_index = av_find_best_stream(format_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
+   
+    if(audio_stream_index < 0) {
+        av_log(NULL, AV_LOG_ERROR, "No audio stream found in the input file\n");
+        error = audio_stream_index;
+        return error;
+    }
+
+    audio_stream = format_ctx->streams[audio_stream_index];
+    decoder_ctx = format_ctx->streams[audio_stream_index]->codec;
+    
+    error = avcodec_open2(decoder_ctx, decoder, NULL);
+
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "%s: unable to open decoder/decoder not found\n", format_ctx->filename);
+        return error; 
+    } 
+    
+    std::cout << "  * Format Context Info" << std::endl;
+    std::cout << "      - Video file duration: " << format_ctx->duration << std::endl;
+    std::cout << "      - Stream bitrate:      " << format_ctx->bit_rate << std::endl;
+    std::cout << "      - audio stream index:  " << audio_stream_index << std::endl; 
+    
+    return 0;
+}
+
+
+int Decomposer::init_filter_graph() {
+    AVFilterInOut *outputs = avfilter_inout_alloc();
+    AVFilterInOut *inputs = avfilter_inout_alloc();
+    const AVFilterLink *outlink;
+
+    std::cout << std::endl;
+    std::cout << "Initialize filter graph" << std::endl;
+    
+
     filter_graph = avfilter_graph_alloc();
+    
     if(!filter_graph) {
         av_log(NULL, AV_LOG_ERROR, "FILTER GRAPH: unable to create filter graph: out of memory!\n");
         return -1;
     }
     
-    std::cout << std::endl;
-    std::cout << "Beginning creation of the filter graph" << std::endl;
-
     int error;
-     
+  
     error = init_abuffer_ctx();
-    if(error >= 0) error = init_channelsplit_ctx();
-    if(error >= 0) error = init_abuffersinks_ctx();
-    
-    if(error < 0) return error;
-    
-    /*
-    // Split into all the channels
-    // FL
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 0);
-    
-    // FR
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 1);
 
-    // FC
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 2);
+    if(error) {
+        av_log(NULL, AV_LOG_ERROR, "Error initializing abuffer context\n");
+        return error;
+    }
 
-    // LFE 
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 3);
-
-    // BL
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 4);
-
-    // BR
-    if(error >= 0) error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 5);
-
-    // Place back into our buffer sink
-    // FL
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 0, abuffersinks_ctx[0], 0);
+    error = init_abuffersink_ctx();
     
-    // FR 
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 1, abuffersinks_ctx[1], 0);
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Error initializing abuffersink context\n"); 
+        return error;
+    }
     
-    // FC
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 2, abuffersinks_ctx[2], 0);
-    
-    // LFE
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 3, abuffersinks_ctx[3], 0);
-    
-    // BL
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 4, abuffersinks_ctx[4], 0);
-    
-    // BR
-    if(error >= 0) error = avfilter_link(channelsplit_ctx, 5, abuffersinks_ctx[5], 0);
+    std::cout << "  * Linking Filters" << std::endl;
+    /* Setup endpoints of filter graph */ 
+    outputs->name = av_strdup("in");
+    outputs->filter_ctx = abuffer_ctx;
+    outputs->pad_idx = 0;
+    outputs->next = NULL;
 
-    */
-    
+    inputs->name = av_strdup("out");
+    inputs->filter_ctx = abuffersink_ctx;
+    inputs->pad_idx = 0;
+    inputs->next = NULL;
 
-
+    const char *filter_descr = "aresample=8000"; 
+    error = avfilter_graph_parse(filter_graph, filter_descr, inputs, outputs, NULL);
+   
     if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "error linking filter graph\n");
         return error;
     }
-    
+
     error = avfilter_graph_config(filter_graph, NULL);
     if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "error configuring filter graph\n");
         return error;
     }
-    std::cout << "Graph has been created!" << std::endl;
-    
-    std::cout << filter_graph->filters[0]->name << std::endl;
+   
+    std::cout << "Filter graph successfully initialized!" << std::endl;
+    std::cout << "More filter graph info:   " << std::endl;
+
+    outlink = abuffersink_ctx->inputs[0];
+    av_get_channel_layout_string(strbuf, sizeof(strbuf), -1, outlink->channel_layout);
+    av_log(NULL, AV_LOG_INFO, "Output: streamrate:%dHz fmt:? chlayout:%s\n",
+           (int)outlink->sample_rate, strbuf);
 
     // char *options;
-    // std::string filter_dump = avfilter_graph_dump(filter_graph, options);
-    // error = stream_packets(avcctx);
+    //std::string filter_dump = avfilter_graph_dump(filter_graph, options);
     return 0;
 }
 
 
 int Decomposer::init_abuffer_ctx() {
+    std::cout << "  * Initialzing input buffer" << std::endl;
     AVFilter *abuffer = avfilter_get_by_name("abuffer");
-    
-    AVCodecContext *avcctx = audio_stream->codec;
+    AVABufferSinkParams *abuffersink_params;
     AVRational time_base = audio_stream->time_base;
+   
+    if(!decoder_ctx->channel_layout) {
+        std::cout << "  ***  Decoder channel layout not found, finding channel layout ***" << std::endl;
+        decoder_ctx->channel_layout = av_get_default_channel_layout(decoder_ctx->channels);
+    }
+    if(!decoder_ctx->channel_layout)
+      av_log(NULL, AV_LOG_ERROR, "unable to guess chnnel layout\n");
     
+    std::cout << "  * Channel layout was successfully found." << std::endl;
+    std::cout << "    Here is some more info about it: " << std::endl;
+    std::cout << "      - Layout: " << decoder_ctx->channel_layout << std::endl;
+    std::cout << "      - # Channels: " << decoder_ctx->channels << std::endl;
+    
+
     // Create an abuffer filter
     snprintf(strbuf, sizeof(strbuf),
              "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64, 
-             time_base.num, time_base.den, avcctx->sample_rate,
-             av_get_sample_fmt_name(avcctx->sample_fmt),
-             avcctx->channel_layout);
+             time_base.num, time_base.den, decoder_ctx->sample_rate,
+             av_get_sample_fmt_name(decoder_ctx->sample_fmt),
+             decoder_ctx->channel_layout);
 
-    fprintf(stderr, "abuffer: %s\n", strbuf);
     int error = avfilter_graph_create_filter(&abuffer_ctx, abuffer,
-                NULL, strbuf, NULL, filter_graph);
+                "input_buffer", strbuf, NULL, filter_graph);
 
     if (error < 0) {
         av_log(NULL, AV_LOG_ERROR, "error initializing abuffer filter\n");
@@ -201,8 +266,7 @@ int Decomposer::init_abuffer_ctx() {
 }
 
 int Decomposer::init_channelsplit_ctx() {
-    AVFilter *channelsplit = avfilter_get_by_name("channelsplit");
-    
+    AVFilter *channelsplit = avfilter_get_by_name("channelsplit"); 
     snprintf(strbuf, sizeof(strbuf), 
              "channel_layout=FL+FR+FC+LFE+BL+BR");
 
@@ -218,149 +282,21 @@ int Decomposer::init_channelsplit_ctx() {
     return error;
 }
 
-int Decomposer::init_abuffersinks_ctx() {
+int Decomposer::init_abuffersink_ctx() {
+    std::cout << "  * Initializing output buffer" << std::endl;
     AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
+
+    int error = avfilter_graph_create_filter(&abuffersink_ctx, abuffersink,
+                    "output_buffer", NULL, NULL, filter_graph);
     
-    std::cout << "abuffersinks: ";
-    for(int i = 0; i < 6; i++) {
-        int error = avfilter_graph_create_filter(&abuffersinks_ctx[i], abuffersink,
-                    NULL, NULL, NULL, filter_graph);
-        
-        std::cout << i;
-        if(error < 0) {
-            av_log(NULL, AV_LOG_ERROR, "unable to create abuffersink filter %d\n", i);
-            return error;
-        }
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "unable to create abuffersink filter \n");
+        return error;
     }
     
-    std::cout << std::endl;
     
-    return 0;
-}
-
-int Decomposer::audio_decode_frame(AVPacket *packet, AVFrame *frame) {
-    AVPacket packet_temp_; 
-    memset(&packet_temp_, 0, sizeof(packet_temp_));
-    AVPacket *packet_temp = &packet_temp_;
-
-    *packet_temp = *packet;
-    
-    std::cout << "-------" << std::endl << std::endl;
-    std::cout << "New packet!" << std::endl;
-    std::cout << "Packet Size: " << packet_temp->size << std::endl;
-
-    int length, got_frame;
-    int new_packet = 1;
-    while(packet_temp->size > 0 || (!packet_temp->data && new_packet)) {
-        av_frame_unref(frame);
-        new_packet = 0;
-
-        std::cout << "Begin decoding" << std::endl;
-        std::cout << "Codec Info" << std::endl;
-        std::cout << "  -Codec ID: " << audio_stream->codec->codec_id << std::endl;
-        std::cout << "  -Bit rate: " << audio_stream->codec->bit_rate << std::endl;
-       
-
-        length = avcodec_decode_audio4(audio_stream->codec, frame, &got_frame, packet_temp);
-        
-        std::cout << "Frame Info" << std::endl;
-        std::cout << "  -Audio Channel Count: " << frame->channels << std::endl << std::endl;
-         
-        std::cout << length << std::endl;
-        if(length < 0) {
-            // if error skip frame
-            packet_temp->size = 0;
-            return -1;
-        }
-
-        packet_temp->data += length;
-        packet_temp->size -= length;
-
-        if(!got_frame) {
-        // stop if finished
-            if(!packet_temp->data && 
-                audio_stream->codec->codec->capabilities&CODEC_CAP_DELAY) {
-                return 0;
-            }
-            continue;
-        }
-
-        // push audio data from decoded frame into the filter graph
-
-        int error = av_buffersrc_write_frame(abuffer_ctx, frame);
-        if(error < 0) {
-            av_log(NULL, AV_LOG_ERROR, "Decode: error writing frame to buffersrc\n");
-            return -1;
-        }
-
-        // pull filtered audio from FL channel filter graph (this is so cool)
-        for(;;) {
-            int error = av_buffersink_get_frame(abuffersinks_ctx[0], oframe);
-            if((error = AVERROR_EOF) || (error = AVERROR(EAGAIN))) {
-                break;
-            }
-            if(error < 0) {
-                av_log(NULL, AV_LOG_ERROR, "Decode: error reading buffer from buffersink!\n");
-            }
-
-            int nb_channels = av_get_channel_layout_nb_channels(oframe->channel_layout);
-            //int bytes_per_sample = av_get_bytes_per_sample(oframe->format);
-            //int data_size = oframe->nb_samples * nb_channels * bytes_per_sample;
-            //std::cout << (void*)oframe->data[0] << std::endl;
-            std::cout << "HI";
-        }
-    }
-
-
-    return 0;
+    return error;
 }
 
 
-int Decomposer::stream_packets(AVCodecContext *avcctx) {
-    AVPacket audio_packet;
-    memset(&audio_packet, 0, sizeof(audio_packet));
-    AVPacket *packet = &audio_packet;
-    AVFrame *frame = av_frame_alloc();
 
-    oframe = av_frame_alloc();
-    if(!oframe) {
-        av_log(NULL, AV_LOG_ERROR, "AVFrame: error allocating oframe\n");
-        return -1;
-    }
-    
-    int eof = 0;
-
-    for(;;) {
-        if(eof) {
-            /*if(avcctx->codec->capabilities & CODEC_CAP_DELAY) {
-                av_init_packet(packet);
-                packet->data = NULL;
-                packet->size = 0;
-                packet->stream_index = 1;
-                std::cout << packet << std::endl;
-                if(audio_decode_frame(packet, frame) > 0) {
-                    // keep flushing packets?
-                    continue;
-                }                
-            }*/
-            break;
-        }
-        int error = av_read_frame(ic, packet);
-        if(error < 0) {
-            if(error != AVERROR_EOF)
-              av_log(NULL, AV_LOG_WARNING, "AVFrame: error reading frames\n");
-            eof = 1;
-            continue;
-        }
-        if(packet->stream_index != 1) {
-            av_free_packet(packet);
-            continue;
-        }
-        //std::cout << packet << std::endl;
-        audio_decode_frame(packet, frame);
-        av_free_packet(packet);
-    }
-
-    avformat_network_deinit();
-    return 0;
-}
