@@ -51,43 +51,48 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
     int got_frame;
     int ret = 0;
     while(1) {
-            std::cout << "New Frame!" << std::endl;
-            if((ret = av_read_frame(format_ctx, &packet)) < 0)
-                break;
-            if(packet.stream_index == audio_stream_index) {
-                avcodec_get_frame_defaults(frame);
-                got_frame = 0;
-                ret = avcodec_decode_audio4(decoder_ctx, frame, &got_frame, &packet);
-                if(ret < 0) {
-                    av_log(NULL, AV_LOG_ERROR, "Error decoding audio\n");
-                    continue;
+        if((ret = av_read_frame(format_ctx, &packet)) < 0)
+            break; 
+        if(packet.stream_index == audio_stream_index) { 
+            avcodec_get_frame_defaults(frame);
+            got_frame = 0;
+            ret = avcodec_decode_audio4(decoder_ctx, frame, &got_frame, &packet);
+            
+            if(ret < 0) {
+                av_log(NULL, AV_LOG_ERROR, "Error decoding audio\n");
+                continue;
+            }
+
+            std::cout << "New audio frame!" << std::endl;
+            if(got_frame) {
+
+                std::cout << "Pushing the frame into a buffer!" << std::endl;
+                /* push audio data from decoded frame through filter grapher */
+                if(av_buffersrc_add_frame_flags(abuffer_ctx, frame, 0) < 0) {
+                    av_log(NULL, AV_LOG_ERROR, "Error while feeding into filter graph!\n");
+                    break;
                 }
-                std::cout << "Frame is an audio frame!" << std::endl;
-                if(got_frame) {
-                    std::cout << "got frame success!" << std::endl;
-                    /* push audio data from decoded frame through filter grapher */
-                    if(av_buffersrc_add_frame_flags(abuffer_ctx, frame, 0) < 0) {
-                        av_log(NULL, AV_LOG_ERROR, "Error while feeding into filter graph!\n");
-                        break;
-                    }
                     
-                    /* pull it the rest of the way through ;) */
-                    while(1) {
-                        ret = av_buffersink_get_frame(abuffersink_ctx, filt_frame);
+                /* pull it the rest of the way through ;) */
+
+                std::cout << "Getting the frame out of the buffer!" << std::endl;
+                while(1) {
+                    ret = av_buffersink_get_frame(abuffersink_ctx, filt_frame);
                         
-                        std::cout << "Status after filter graph: " << ret << std::endl;
-                        if(ret < 0)
-                            break;
-                        std::cout << "Preparing to print" << std::endl;
-                        std::cout << "==================" << std::endl;
-                        //print_frame(filt_frame);
-                        av_frame_unref(filt_frame);
+                    if(ret < 0) {
+                        std::cout << "End of frame!" << std::endl << std::endl;
+                        std::cout << "==================" << std::endl <<  std::endl;
+                        break; 
                     }
+                    //std::cout << "Preparing to print" << std::endl;
+                    //print_frame(filt_frame);
+                    av_frame_unref(filt_frame);
                 }
             }
-            av_free_packet(&packet);
+        }
+        /* Reduce, reuse, recycle your packets! */ 
+        av_free_packet(&packet);
     }
-
 }
 
 void Decomposer::print_frame(const AVFrame *frame) {
@@ -178,8 +183,8 @@ int Decomposer::init_filter_graph() {
     error = init_abuffersink_ctx();
     
     if(error < 0) {
-     av_log(NULL, AV_LOG_ERROR, "Error initializing abuffersink context\n"); 
-     return error;
+        av_log(NULL, AV_LOG_ERROR, "Error initializing abuffersink context\n"); 
+        return error;
     }
     
     std::cout << "  * Linking Filters" << std::endl;
