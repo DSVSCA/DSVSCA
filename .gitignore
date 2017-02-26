@@ -28,6 +28,8 @@
 *.out
 *.app
 
-src/openal-src/dependcies/openal*
-src/openal-src/dependcies/freealut*
-src/openal-src/dependcies/master*
+src/openal-src/dependencies/openal-soft-1.17.2/
+src/openal-src/dependencies/freealut-master/
+src/openal-src/dependencies/master.zip
+src/openal-src/dependencies/openal-soft-1.17.2.tar.bz2
+src/openal-src/example/openal-example
