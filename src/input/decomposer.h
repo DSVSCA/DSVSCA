@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <map>
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
@@ -27,13 +28,6 @@ private:
     static AVFilterContext *abuffer_ctx;
     static AVFilterContext *channelsplit_ctx;
     
-    
-    // FL, FR, FC, LFE, BL, BR
-    static std::vector<AVFilterContext*> abuffersinks_ctx;
-    
-    static AVFilterContext *abuffersink_ctx; // temp
-
-
     static AVFormatContext *format_ctx;   
     static AVStream *audio_stream;
 
@@ -53,9 +47,10 @@ private:
 
 public:
     Decomposer(std::string fileName, bool verbose);
-    
+
     std::vector<char> *getBuffer();
     
+    static std::map<std::string, AVFilterContext*> abuffersink_ctx_map;
 };
 
 #endif
