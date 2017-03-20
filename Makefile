@@ -1,4 +1,5 @@
 default:
+	if [ ! -d "./build" ]; then mkdir build; fi
 	$(MAKE) -C ./src
 
 openal:
