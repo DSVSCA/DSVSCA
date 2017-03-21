@@ -13,10 +13,10 @@ extern "C" {
 }
 
 
-#ifndef DECOMPOSER_H
-#define DECOMPOSER_H
+#ifndef FILTER_H
+#define FILTER_H
 
-class Decomposer {
+class Filter {
 
 private:
     std::vector<char> buffer;
@@ -46,10 +46,9 @@ private:
     static char strbuf[512];
 
 public:
-    Decomposer(std::string fileName, bool verbose);
+    Filter(std::string fileName, bool verbose);
 
-    std::vector<char> *getBuffer();
-    
+    int process();
     static std::map<std::string, AVFilterContext*> abuffersink_ctx_map;
 };
 

@@ -1,8 +1,8 @@
 #include <iostream>
-#include "input/decomposer.h"
+#include "input/filter.h"
 
 int main(int argc, char *argv[]) {
-    Decomposer *in = new Decomposer("sw.mp4", true);    
+    Filter *in = new Filter("sw.mp4", true);    
     
     return 0; 
 }
