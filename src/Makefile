@@ -3,6 +3,9 @@ default:
 	$(MAKE) -C ./openal-src
 	$(MAKE) -C ./virtualizer
 
+install-deps:
+	$(MAKE) -C ./openal-src -f Makefile install-deps
+
 openal:
 	$(MAKE) -C ./openal-src
 

@@ -1,4 +1,4 @@
-#include "decomposer.h"
+#include "filter.h"
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
@@ -9,30 +9,32 @@ extern "C" {
 #include <libavutil/opt.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/samplefmt.h>
+#include <libavutil/timestamp.h>
+#include <libavformat/avformat.h>
 }
 
 
-char Decomposer::strbuf[512];   // Send filter graph args through this
+char Filter::strbuf[512];   // Send filter graph args through this
 
 
-AVFormatContext *Decomposer::format_ctx = NULL;  // Format I/O Context ????
-AVStream *Decomposer::audio_stream = NULL;  // Stream structure 
-int Decomposer::audio_stream_index = 0;
-AVCodecContext *Decomposer::decoder_ctx = NULL;  // Main API structure
+AVFormatContext *Filter::format_ctx = NULL;  // Format I/O Context ????
+AVStream *Filter::audio_stream = NULL;  // Stream structure 
+int Filter::audio_stream_index = 0;
+AVCodecContext *Filter::decoder_ctx = NULL;  // Main API structure
 
 
-AVFrame *Decomposer::oframe = NULL; // Describes decoded (raw) audio/video 
+AVFrame *Filter::oframe = NULL; // Describes decoded (raw) audio/video 
 
-AVFilterGraph *Decomposer::filter_graph;  // Holds filter steps
+AVFilterGraph *Filter::filter_graph;  // Holds filter steps
 
-AVFilterContext *Decomposer::abuffer_ctx = NULL; // Buffers audio frames to expose to filter chain
-AVFilterContext *Decomposer::channelsplit_ctx = NULL;  // Splits channels into multiple output streams
-AVFilterContext *Decomposer::abuffersink_ctx = NULL;
+AVFilterContext *Filter::abuffer_ctx = NULL; // Buffers audio frames to expose to filter chain
+AVFilterContext *Filter::channelsplit_ctx = NULL;  // Splits channels into multiple output streams
+
 // Buffer audio streams and make available at the end of a filter chain. 6 here for a 5.1
 // channel audio setup
-std::vector<AVFilterContext*> Decomposer::abuffersinks_ctx = std::vector<AVFilterContext*>(6); 
+std::map<std::string, AVFilterContext*> Filter::abuffersink_ctx_map;
 
-Decomposer::Decomposer(std::string fileName, bool verbose) {  
+Filter::Filter(std::string fileName, bool verbose) {  
     std::cout << "Initializing libav* " << std::endl;
     avcodec_register_all();
     av_register_all();
@@ -43,8 +45,12 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
     
     init_target_file(fileName);
     init_filter_graph();
+    
+    process();
+}
 
 
+int Filter::process() {
     AVPacket packet;
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
@@ -62,11 +68,9 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
                 av_log(NULL, AV_LOG_ERROR, "Error decoding audio\n");
                 continue;
             }
-
-            std::cout << "New audio frame!" << std::endl;
+            std::cout << ".";
             if(got_frame) {
 
-                std::cout << "Pushing the frame into a buffer!" << std::endl;
                 /* push audio data from decoded frame through filter grapher */
                 if(av_buffersrc_add_frame_flags(abuffer_ctx, frame, 0) < 0) {
                     av_log(NULL, AV_LOG_ERROR, "Error while feeding into filter graph!\n");
@@ -75,13 +79,20 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
                     
                 /* pull it the rest of the way through ;) */
 
-                std::cout << "Getting the frame out of the buffer!" << std::endl;
                 while(1) {
-                    ret = av_buffersink_get_frame(abuffersink_ctx, filt_frame);
-                        
+                    ret = av_buffersink_get_frame(abuffersink_ctx_map["FR"], filt_frame); 
+                    std::cout << "FR";
+                    ret = av_buffersink_get_frame(abuffersink_ctx_map["FL"], filt_frame);
+                    std::cout << "FL";
+                    ret = av_buffersink_get_frame(abuffersink_ctx_map["FC"], filt_frame);
+                    std::cout << "FC";
+                    ret = av_buffersink_get_frame(abuffersink_ctx_map["LFE"], filt_frame);
+                    std::cout << "LFE";
+                    ret = av_buffersink_get_frame(abuffersink_ctx_map["BR"], filt_frame);
+                    std::cout << "BR";
+                    ret = av_buffersink_get_frame(abuffersink_ctx_map["BL"], filt_frame);
+                    std::cout << "BL";
                     if(ret < 0) {
-                        std::cout << "End of frame!" << std::endl << std::endl;
-                        std::cout << "==================" << std::endl <<  std::endl;
                         break; 
                     }
                     //std::cout << "Preparing to print" << std::endl;
@@ -93,9 +104,11 @@ Decomposer::Decomposer(std::string fileName, bool verbose) {
         /* Reduce, reuse, recycle your packets! */ 
         av_free_packet(&packet);
     }
+
 }
 
-void Decomposer::print_frame(const AVFrame *frame) {
+// TODO: remove this method
+void Filter::print_frame(const AVFrame *frame) {
     const int n = frame->nb_samples * av_get_channel_layout_nb_channels(av_frame_get_channel_layout(frame));
     const uint16_t *p     = (uint16_t*)frame->data[0];
     const uint16_t *p_end = p + n;
@@ -108,7 +121,7 @@ void Decomposer::print_frame(const AVFrame *frame) {
     fflush(stdout);
 }
 
-int Decomposer::init_target_file(std::string fileName) { 
+int Filter::init_target_file(std::string fileName) { 
     AVCodec *decoder = NULL;    // Provides codec information and decoder info
     char *filename = new char[fileName.length() + 1];
     strcpy(filename, fileName.c_str());
@@ -155,9 +168,7 @@ int Decomposer::init_target_file(std::string fileName) {
 }
 
 
-int Decomposer::init_filter_graph() {
-    AVFilterInOut *outputs = avfilter_inout_alloc();
-    AVFilterInOut *inputs = avfilter_inout_alloc();
+int Filter::init_filter_graph() {
     const AVFilterLink *outlink;
 
     std::cout << std::endl;
@@ -175,8 +186,15 @@ int Decomposer::init_filter_graph() {
   
     error = init_abuffer_ctx();
 
-    if(error) {
+    if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "Error initializing abuffer context\n");
+        return error;
+    }
+
+    error = init_channelsplit_ctx();
+
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Error initializing channelsplit context\n");
         return error;
     }
 
@@ -186,22 +204,22 @@ int Decomposer::init_filter_graph() {
         av_log(NULL, AV_LOG_ERROR, "Error initializing abuffersink context\n"); 
         return error;
     }
-    
+  
+    /* connect all of the components of the filter graph */
     std::cout << "  * Linking Filters" << std::endl;
-    /* Setup endpoints of filter graph */ 
-    outputs->name = av_strdup("in");
-    outputs->filter_ctx = abuffer_ctx;
-    outputs->pad_idx = 0;
-    outputs->next = NULL;
-
-    inputs->name = av_strdup("out");
-    inputs->filter_ctx = abuffersink_ctx;
-    inputs->pad_idx = 0;
-    inputs->next = NULL;
-
-    const char *filter_descr = "aresample=8000"; 
-    error = avfilter_graph_parse(filter_graph, filter_descr, inputs, outputs, NULL);
-   
+    error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 0);
+    if(error >= 0)
+        error = avfilter_link(channelsplit_ctx, 0, abuffersink_ctx_map["FL"], 0);
+    if(error >= 0)
+        error = avfilter_link(channelsplit_ctx, 1, abuffersink_ctx_map["FR"], 0);
+    if(error >= 0)
+        error = avfilter_link(channelsplit_ctx, 2, abuffersink_ctx_map["FC"], 0);
+    if(error >= 0)
+        error = avfilter_link(channelsplit_ctx, 3, abuffersink_ctx_map["LFE"], 0);
+    if(error >= 0)
+        error = avfilter_link(channelsplit_ctx, 4, abuffersink_ctx_map["BL"], 0);
+    if(error >= 0)
+        error = avfilter_link(channelsplit_ctx, 5, abuffersink_ctx_map["BR"], 0);
     if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "error linking filter graph\n");
         return error;
@@ -214,23 +232,23 @@ int Decomposer::init_filter_graph() {
     }
    
     std::cout << "Filter graph successfully initialized!" << std::endl;
+    /*
     std::cout << "More filter graph info:   " << std::endl;
 
     outlink = abuffersink_ctx->inputs[0];
     av_get_channel_layout_string(strbuf, sizeof(strbuf), -1, outlink->channel_layout);
     av_log(NULL, AV_LOG_INFO, "Output: streamrate:%dHz fmt:? chlayout:%s\n",
            (int)outlink->sample_rate, strbuf);
-
+    */
     // char *options;
     //std::string filter_dump = avfilter_graph_dump(filter_graph, options);
-    return 0;
+    return error;
 }
 
 
-int Decomposer::init_abuffer_ctx() {
+int Filter::init_abuffer_ctx() {
     std::cout << "  * Initialzing input buffer" << std::endl;
     AVFilter *abuffer = avfilter_get_by_name("abuffer");
-    AVABufferSinkParams *abuffersink_params;
     AVRational time_base = audio_stream->time_base;
    
     if(!decoder_ctx->channel_layout) {
@@ -265,7 +283,7 @@ int Decomposer::init_abuffer_ctx() {
     return error;
 }
 
-int Decomposer::init_channelsplit_ctx() {
+int Filter::init_channelsplit_ctx() {
     AVFilter *channelsplit = avfilter_get_by_name("channelsplit"); 
     snprintf(strbuf, sizeof(strbuf), 
              "channel_layout=FL+FR+FC+LFE+BL+BR");
@@ -282,18 +300,34 @@ int Decomposer::init_channelsplit_ctx() {
     return error;
 }
 
-int Decomposer::init_abuffersink_ctx() {
+int Filter::init_abuffersink_ctx() {
     std::cout << "  * Initializing output buffer" << std::endl;
+        
     AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
+    
+    int error;
+    std::string f_name;
 
-    int error = avfilter_graph_create_filter(&abuffersink_ctx, abuffersink,
-                    "output_buffer", NULL, NULL, filter_graph);
+    for(int i = 0; i < channelsplit_ctx->output_count; i++) {
+        AVFilterContext *sink_ctx = NULL;
+        const char *name = channelsplit_ctx->output_pads[i].name;
+        error = avfilter_graph_create_filter(&sink_ctx, abuffersink,
+                name, NULL, NULL, filter_graph);
+
+         if(error < 0) {
+            av_log(NULL, AV_LOG_ERROR, "error creating filter sink \n");
+            return error;
+         }
+        
+        f_name.assign(name);
+        abuffersink_ctx_map[f_name] = sink_ctx;
+        std::cout << f_name << " => " << abuffersink_ctx_map[f_name] << std::endl;
+    }
     
     if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "unable to create abuffersink filter \n");
         return error;
     }
-    
     
     return error;
 }
