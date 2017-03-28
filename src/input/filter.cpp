@@ -51,16 +51,23 @@ Filter::Filter(std::string fileName, bool verbose) {
 
 
 int Filter::process() {
-    AVPacket packet;
+    AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
     int got_frame;
     int ret = 0;
+    
+    
+    /* Read all of the packets */
+    packet0.data = NULL;
+    packet.data = NULL;
     while(1) {
-        if((ret = av_read_frame(format_ctx, &packet)) < 0)
-            break; 
+        if(!packet0.data) {
+            if((ret = av_read_frame(format_ctx, &packet)) < 0) break;
+            packet0 = packet;
+        }
         if(packet.stream_index == audio_stream_index) { 
-            avcodec_get_frame_defaults(frame);
+            // avcodec_get_frame_defaults(frame);
             got_frame = 0;
             ret = avcodec_decode_audio4(decoder_ctx, frame, &got_frame, &packet);
             
@@ -68,6 +75,10 @@ int Filter::process() {
                 av_log(NULL, AV_LOG_ERROR, "Error decoding audio\n");
                 continue;
             }
+            
+            packet.size -= ret;
+            packet.data += ret;
+
             std::cout << ".";
             if(got_frame) {
 
@@ -78,33 +89,57 @@ int Filter::process() {
                 }
                     
                 /* pull it the rest of the way through ;) */
-
+                
                 while(1) {
+                    
+                    
                     ret = av_buffersink_get_frame(abuffersink_ctx_map["FR"], filt_frame); 
+                    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     std::cout << "FR";
                     ret = av_buffersink_get_frame(abuffersink_ctx_map["FL"], filt_frame);
+                    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     std::cout << "FL";
                     ret = av_buffersink_get_frame(abuffersink_ctx_map["FC"], filt_frame);
+                    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     std::cout << "FC";
                     ret = av_buffersink_get_frame(abuffersink_ctx_map["LFE"], filt_frame);
+                    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     std::cout << "LFE";
                     ret = av_buffersink_get_frame(abuffersink_ctx_map["BR"], filt_frame);
+                    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     std::cout << "BR";
                     ret = av_buffersink_get_frame(abuffersink_ctx_map["BL"], filt_frame);
-                    std::cout << "BL";
+                    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+                    std::cout << "BL\t";
                     if(ret < 0) {
+                        filter_free();
+                        av_frame_free(&frame);
+                        av_frame_free(&filt_frame);
+
                         break; 
                     }
                     //std::cout << "Preparing to print" << std::endl;
                     //print_frame(filt_frame);
-                    av_frame_unref(filt_frame);
+                    av_frame_unref(filt_frame);    
                 }
             }
+            
+            if(packet.size <= 0) av_free_packet(&packet0);
+        } else {
+            /* Reduce, reuse, recycle your packets! */ 
+            av_free_packet(&packet0);
         }
-        /* Reduce, reuse, recycle your packets! */ 
-        av_free_packet(&packet);
     }
+    filter_free();
+    av_frame_free(&frame);
+    av_frame_free(&filt_frame);
 
+}
+
+void Filter::filter_free() {
+    avfilter_graph_free(&filter_graph);
+    avcodec_close(decoder_ctx);
+    avformat_close_input(&format_ctx);
 }
 
 // TODO: remove this method

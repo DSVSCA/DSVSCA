@@ -50,6 +50,8 @@ public:
 
     int process();
     static std::map<std::string, AVFilterContext*> abuffersink_ctx_map;
+    static void filter_free();
+
 };
 
 #endif
