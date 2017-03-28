@@ -21,14 +21,11 @@ class Filter {
 private:
     std::vector<char> buffer;
     
-    static AVCodecContext *decoder_ctx;
 
     static AVFilterGraph *filter_graph;
 
-    static AVFilterContext *abuffer_ctx;
     static AVFilterContext *channelsplit_ctx;
     
-    static AVFormatContext *format_ctx;   
     static AVStream *audio_stream;
 
     static AVFrame *oframe;
@@ -39,19 +36,20 @@ private:
     static int init_abuffersink_ctx();
     static int init_channelsplit_ctx(); 
    
-    static int audio_stream_index;
     
     static void stream();
     static void print_frame(const AVFrame *frame);
     static char strbuf[512];
 
 public:
-    Filter(std::string fileName, bool verbose);
-
-    int process();
+    Filter(std::string fileName, bool verbose); 
+    ~Filter();
+    static AVFormatContext *format_ctx;   
+    static AVCodecContext *decoder_ctx;
+    static AVFilterContext *abuffer_ctx;
     static std::map<std::string, AVFilterContext*> abuffersink_ctx_map;
     static void filter_free();
-
+    static int audio_stream_index;
 };
 
 #endif
