@@ -33,7 +33,6 @@ int process_filter_graph(Filter *in) {
             packet.size -= ret;
             packet.data += ret;
             
-            std::cout << ".";
             if(got_frame) {
                 /* push audio from decoded frame through filter graph */
                 if(av_buffersrc_add_frame_flags(in->abuffer_ctx, frame, 0) < 0) {
@@ -47,27 +46,27 @@ int process_filter_graph(Filter *in) {
                     ret = av_buffersink_get_frame(in->abuffersink_ctx_map["FR"], filt_frame); 
                     
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                    std::cout << "FR"; 
+                    //std::cout << "FR"; 
                     av_frame_unref(filt_frame);
                     ret = av_buffersink_get_frame(in->abuffersink_ctx_map["FL"], filt_frame);
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                    std::cout << "FL";
+                    //std::cout << "FL";
                     av_frame_unref(filt_frame);
                     ret = av_buffersink_get_frame(in->abuffersink_ctx_map["FC"], filt_frame);
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                    std::cout << "FC";
+                    //std::cout << "FC";
                     av_frame_unref(filt_frame);
                     ret = av_buffersink_get_frame(in->abuffersink_ctx_map["LFE"], filt_frame);
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                    std::cout << "LFE";
+                    //std::cout << "LFE";
                     av_frame_unref(filt_frame);
                     ret = av_buffersink_get_frame(in->abuffersink_ctx_map["BR"], filt_frame);
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                    std::cout << "BR";
+                    //std::cout << "BR";
                     av_frame_unref(filt_frame);
                     ret = av_buffersink_get_frame(in->abuffersink_ctx_map["BL"], filt_frame);
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                    std::cout << "BL\t";
+                    //std::cout << "BL\t";
                     if(ret < 0) {
                         av_frame_free(&frame);
                         av_frame_free(&filt_frame);
@@ -91,7 +90,7 @@ int process_filter_graph(Filter *in) {
 }
 
 int main(int argc, char *argv[]) {
-    Filter *in = new Filter("sw.mp4", true);    
+    Filter *in = new Filter("moana.mp4", true);    
     process_filter_graph(in);    
     return 0; 
 }
