@@ -28,6 +28,13 @@
 *.out
 *.app
 
+# Editor Files
+*.swp
+
+# Video Files
+*.mp4
+
+# Work Directories
 include/
 build/*
 dependencies/*

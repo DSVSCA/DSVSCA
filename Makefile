@@ -13,4 +13,4 @@ clean-deps:
 
 clean:
 	rm -rf ./include
-	cd ./build; rm !(Makefile)
+	find ./build/ -type f ! \( -iname "makefile" -or -iname "*.mp4" \) -delete
