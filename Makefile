@@ -1,12 +1,16 @@
-default:
-	if [ ! -d "./build" ]; then mkdir build; fi
+default: build-deps
 	$(MAKE) -C ./src
 
-install-deps:
-	$(MAKE) -C ./src -f Makefile install-deps
+make-dirs:
+	if [ ! -d "./build" ]; then mkdir build; fi
+	if [ ! -d "./include" ]; then mkdir include; fi
 
-openal:
-	$(MAKE) -C ./src -f Makefile openal
+build-deps: make-dirs
+	$(MAKE) -C ./dependencies
+
+clean-deps:
+	$(MAKE) -C ./dependencies -f Makefile clean
 
 clean:
-	$(MAKE) -C ./src -f Makefile clean
+	rm -rf ./include
+	rm -rf ./build
