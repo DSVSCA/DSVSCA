@@ -1,4 +1,4 @@
-default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a
+default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a libmysofa.a
 	cp libFFTConvolver.a ../build/
 	cp FFTConvolver/*.h ../include/
 	cp libavcodec.a ../build/
@@ -22,6 +22,8 @@ default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.
 	cp ffmpeg-2.8.11/libswresample/*.h ../include/libswresample/
 	if [ ! -d "../include/libswscale" ]; then mkdir ../include/libswscale; fi
 	cp ffmpeg-2.8.11/libswscale/*.h ../include/libswscale/
+	cp libmysofa.a ../build/
+	cp libmysofa-master/src/hrtf/mysofa.h ../include/
 
 libFFTConvolver.a:
 	wget https://github.com/HiFi-LoFi/FFTConvolver/archive/non-uniform.zip
@@ -33,14 +35,13 @@ libFFTConvolver.a:
 		ar rcs libFFTConvolver.a *.o;\
 		mv libFFTConvolver.a ../;\
 		cp *.h ../../include/
-	cp libFFTConvolver.a ../build/
 
 libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a:
-	#wget https://ffmpeg.org/releases/ffmpeg-2.8.11.tar.xz
-	#tar -xvf ffmpeg-2.8.11.tar.xz
-	#rm ffmpeg-2.8.11.tar.xz
-	#cd ffmpeg-2.8.11; ./configure
-	#$(MAKE) -C ffmpeg-2.8.11
+	wget https://ffmpeg.org/releases/ffmpeg-2.8.11.tar.xz
+	tar -xvf ffmpeg-2.8.11.tar.xz
+	rm ffmpeg-2.8.11.tar.xz
+	cd ffmpeg-2.8.11; ./configure
+	$(MAKE) -C ffmpeg-2.8.11
 	cp ffmpeg-2.8.11/libavcodec/libavcodec.a ./
 	cp ffmpeg-2.8.11/libavdevice/libavdevice.a ./
 	cp ffmpeg-2.8.11/libavfilter/libavfilter.a ./
@@ -48,6 +49,15 @@ libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample
 	cp ffmpeg-2.8.11/libavutil/libavutil.a ./
 	cp ffmpeg-2.8.11/libswresample/libswresample.a ./
 	cp ffmpeg-2.8.11/libswscale/libswscale.a ./
+
+libmysofa.a:
+	wget https://github.com/brettsimons/libmysofa/archive/master.zip
+	unzip master.zip
+	rm master.zip
+	cd libmysofa-master/build;\
+		cmake ..;\
+		make mysofa-static
+	cp libmysofa-master/build/src/libmysofa.a ./
 
 clean:
 	rm -rf FFTConvolver libFFTConvolver.a

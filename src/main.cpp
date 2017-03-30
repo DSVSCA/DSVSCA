@@ -1,30 +1,31 @@
 #include <iostream>
 #include "filter.h"
+#include "mysofa.h"
 
 int process_filter_graph(Filter *in) {
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
-    
+
     int got_frame;
     int ret = 0;
 
     /* Read all of the packets */
     packet0.data = NULL;
     packet.data = NULL;
-    
+
     while(1) {
-        
+
         if(!packet0.data) {
             ret = av_read_frame(in->format_ctx, &packet);
             if(ret < 0) break;
             packet0 = packet;
         }
-    
+
         if(packet.stream_index == in->audio_stream_index) {
             got_frame = 0;
             ret = avcodec_decode_audio4(in->decoder_ctx, frame, &got_frame, &packet);
-            
+
             if(ret < 0) {
                 av_log(NULL, AV_LOG_ERROR, "Error decoding audio\n");
                 continue;
@@ -32,7 +33,7 @@ int process_filter_graph(Filter *in) {
 
             packet.size -= ret;
             packet.data += ret;
-            
+
             if(got_frame) {
                 /* push audio from decoded frame through filter graph */
                 if(av_buffersrc_add_frame_flags(in->abuffer_ctx, frame, 0) < 0) {
@@ -41,12 +42,15 @@ int process_filter_graph(Filter *in) {
                 }
 
                 while(1) {
-                    // This is where you will work with each processed frame. 
-                    
-                    ret = av_buffersink_get_frame(in->abuffersink_ctx_map["FR"], filt_frame); 
-                    
+                    // This is where you will work with each processed frame.
+
+                    ret = av_buffersink_get_frame(in->abuffersink_ctx_map["FR"], filt_frame);
+
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                    //std::cout << "FR"; 
+
+                    uint8_t sample_count = filt_frame->nb_samples;
+                    int sample_rate = filt_frame->sample_rate;
+                    //std::cout << "FR";
                     av_frame_unref(filt_frame);
                     ret = av_buffersink_get_frame(in->abuffersink_ctx_map["FL"], filt_frame);
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
@@ -71,11 +75,11 @@ int process_filter_graph(Filter *in) {
                         av_frame_free(&frame);
                         av_frame_free(&filt_frame);
                         delete in;
-                        break; 
+                        break;
                     }
                     //std::cout << "Preparing to print" << std::endl;
                     //print_frame(filt_frame);
-                    av_frame_unref(filt_frame);    
+                    av_frame_unref(filt_frame);
                 }
             }
             if(packet.size <= 0) av_free_packet(&packet0);
@@ -90,9 +94,10 @@ int process_filter_graph(Filter *in) {
 }
 
 int main(int argc, char *argv[]) {
-    Filter *in = new Filter("moana.mp4", true);    
-    process_filter_graph(in);    
-    return 0; 
+
+    Filter *in = new Filter(argv[1], true);
+    process_filter_graph(in);
+    return 0;
 }
 
 

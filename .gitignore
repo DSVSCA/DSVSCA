@@ -34,6 +34,9 @@
 # Video Files
 *.mp4
 
+# Sofa Files
+*.sofa
+
 # Work Directories
 include/
 build/*
