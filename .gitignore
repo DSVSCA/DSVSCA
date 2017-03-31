@@ -31,8 +31,10 @@
 # Editor Files
 *.swp
 
-# Video Files
+# Video/Audio Files
 *.mp4
+*.mkv
+*.wav
 
 # Sofa Files
 *.sofa
@@ -43,3 +45,4 @@ build/*
 dependencies/*
 !dependencies/Makefile
 !build/Makefile
+!testing/*
