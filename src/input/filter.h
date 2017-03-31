@@ -21,23 +21,16 @@ class Filter {
 private:
     std::vector<char> buffer;
     
-
     static AVFilterGraph *filter_graph;
-
     static AVFilterContext *channelsplit_ctx;
-    
     static AVStream *audio_stream;
-
     static AVFrame *oframe;
-
     static int init_target_file(std::string fileName);
     static int init_filter_graph(); 
     static int init_abuffer_ctx();
     static int init_abuffersink_ctx();
     static int init_channelsplit_ctx(); 
    
-    
-    static void stream();
     static void print_frame(const AVFrame *frame);
     static char strbuf[512];
 

@@ -1,5 +1,6 @@
 #include <iostream>
 #include "input/filter.h"
+#include <ctime>
 
 int process_filter_graph(Filter *in) {
     AVPacket packet, packet0;
@@ -90,8 +91,17 @@ int process_filter_graph(Filter *in) {
 }
 
 int main(int argc, char *argv[]) {
+    clock_t begin = clock(); 
     Filter *in = new Filter("moana.mp4", true);    
+    clock_t end = clock();
+    
+    std::cout << "Filter initialization: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;
+
+    begin = clock();
     process_filter_graph(in);    
+    end = clock();
+
+    std::cout << "Processing Time: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;
     return 0; 
 }
 
