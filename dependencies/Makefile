@@ -55,7 +55,7 @@ libmysofa.a:
 	unzip master.zip
 	rm master.zip
 	cd libmysofa-master/build;\
-		cmake ..;\
+		cmake -DCMAKE_BUILD_TYPE=Debug ..;\
 		make mysofa-static
 	cp libmysofa-master/build/src/libmysofa.a ./
 
