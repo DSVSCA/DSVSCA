@@ -30,6 +30,40 @@ struct Wave {
     bfloat * data;
 };
 
+float * unpack_wave(bfloat * source, size_t source_length, size_t * output_size) {
+    size_t samples_per_float = 2;
+    *output_size = samples_per_float * source_length;
+    float * output = new float[*output_size];
+
+    size_t output_index = 0;
+    for (size_t i = 0; i < source_length; i++) {
+        for (size_t x = 0; x < samples_per_float; x++) {
+            output[output_index] = source[i].b[x];
+            output_index++;
+        }
+    }
+
+    return output;
+}
+
+bfloat * repack_wave(float * source, size_t source_length, uint32_t current_delay, uint32_t overall_delay, size_t * output_size) {
+    size_t samples_per_float = 2;
+    uint32_t actual_overall_delay = overall_delay / samples_per_float;
+    uint32_t actual_current_delay = current_delay / samples_per_float;
+    *output_size = std::ceil(source_length / samples_per_float) + actual_overall_delay;
+    bfloat * output = new bfloat[*output_size];
+
+    size_t source_index = 0;
+    for (uint32_t i = actual_current_delay; i < *output_size; i++) {
+        for (size_t x = 0; x < samples_per_float; x++) {
+            output[i].b[x] = ((bfloat*)source)[source_index].b[0];
+            source_index++;
+        }
+    }
+
+    return output;
+}
+
 void interleave(bfloat * left, bfloat * right, bfloat * out, const size_t length) {
     size_t out_index = 0;
     for (size_t i = 0; i < length; i++) {
@@ -152,38 +186,51 @@ bfloat** virtualize(const Wave * source, const char * sofaFile, size_t * data_le
     }
 
     // get IR and delay for front left (1 1 0)
-    float * leftIR = new float[filter_length];
-    float * rightIR = new float[filter_length];
+    float leftIR[filter_length];
+    float rightIR[filter_length];
     float left_delay_f = -1;
     float right_delay_f = -1;
-    while (left_delay_f < 0 || right_delay_f < 0) mysofa_getfilter_float(hrtf, x, y, z, leftIR, rightIR, &left_delay_f, &right_delay_f);
+    mysofa_getfilter_float(hrtf, x, y, z, leftIR, rightIR, &left_delay_f, &right_delay_f);
 
     uint32_t left_delay = 0;
     uint32_t right_delay = 0;
     if (left_delay_f < right_delay_f) right_delay = std::round((right_delay_f - left_delay_f) * sample_rate);
     else if (left_delay_f > right_delay_f) left_delay = std::round((left_delay_f - right_delay_f) * sample_rate);
+    uint32_t overall_delay = left_delay + right_delay;
+    *data_length += (overall_delay / 2);
     printf("Old Left Delay: %f, Old Right Delay: %f\n", left_delay_f, right_delay_f);
     printf("Left Delay: %d, Right Delay: %d\n", left_delay, right_delay);
-    *data_length += left_delay + right_delay;
 
     bfloat ** out = new bfloat*[2];
-    for (int i = 0; i < 2; i++) {
+    for (uint16_t i = 0; i < 2; i++) {
         out[i] = new bfloat[*data_length];
-
-        for (int x = 0; x < *data_length; x++) out[i][x].f = 0;
+        for (uint32_t x = 0; x < *data_length; x++) out[i][0].f = 0;
     }
 
     fftconvolver::FFTConvolver left_conv;
     fftconvolver::FFTConvolver right_conv;
-    bool left_success = left_conv.init(2048, leftIR, filter_length);
-    bool right_success = right_conv.init(2048, rightIR, filter_length);
+    bool left_success = left_conv.init(256, leftIR, filter_length);
+    bool right_success = right_conv.init(256, rightIR, filter_length);
 
     if (!left_success) printf("Left Convolution failed during init.\n");
     if (!right_success) printf("Right Convolution failed during init.\n");
     if (!left_success || !right_success) return out;
 
-    left_conv.process((float*)source->data, (float*)(out[0] + left_delay), source->chunk2_size);
-    right_conv.process((float*)source->data, (float*)(out[1] + right_delay), source->chunk2_size);
+    //size_t to_conv_size;
+    //float * to_conv = unpack_wave(source->data, source->chunk2_size, &to_conv_size);
+    //float * out_conv_left = new float[to_conv_size];
+    //float * out_conv_right = new float[to_conv_size];
+
+    //left_conv.process(to_conv, out_conv_left, to_conv_size);
+    left_conv.process((float*)source->data, (float*)(out[0] + left_delay), *data_length);
+    //right_conv.process(to_conv, out_conv_right, to_conv_size);
+    right_conv.process((float*)source->data, (float*)(out[1] + right_delay), *data_length);
+
+    //size_t output_size_left;
+    //size_t output_size_right;
+    //out[0] = repack_wave(out_conv_left, to_conv_size, left_delay, overall_delay, &output_size_left);
+    //out[1] = repack_wave(out_conv_right, to_conv_size, right_delay, overall_delay, &output_size_right);
+
     //memcpy((float*)(out[0] + left_delay), (float*)source->data, source->chunk2_size);
     //memcpy((float*)(out[1] + right_delay), (float*)source->data, source->chunk2_size);
 
