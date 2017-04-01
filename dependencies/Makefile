@@ -1,4 +1,4 @@
-FFMPEG_EXISTS:=$(shell whereis -b libavcodec.a | grep -q "libavcodec.a" && whereis -b libavdevice.a | grep -q "libavdevice.a" && whereis -b libavfilter.a | grep -q "libfilter.a" && whereis -b libavformat.a | grep -q "libavformat.a" && whereis -b libavutil.a | grep -q "libavutil.a" && whereis -b libswresample.a | grep -q "libswresample.a" && whereis -b libswscale.a | grep -q "libswscale.a"; echo $$?)
+FFMPEG_EXISTS:=$(shell whereis -b libavcodec.a | grep -q "libavcodec.a" && whereis -b libavdevice.a | grep -q "libavdevice.a" && whereis -b libavfilter.a | grep -q "libavfilter.a" && whereis -b libavformat.a | grep -q "libavformat.a" && whereis -b libavutil.a | grep -q "libavutil.a" && whereis -b libswresample.a | grep -q "libswresample.a" && whereis -b libswscale.a | grep -q "libswscale.a"; echo $$?)
 
 default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a libmysofa.a
 	cp libFFTConvolver.a ../build/
