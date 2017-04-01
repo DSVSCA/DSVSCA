@@ -1,8 +1,9 @@
-DSVSCA:
-	g++ "../main.cpp" filter.cpp format.cpp "../sjoin/sjoin.cpp" -lavformat -lavcodec -lavfilter -lavutil -lpthread -lswresample -lswscale -o DSVSCA
 
-debug:
-	g++ -g "../main.cpp" filter.cpp format.cpp "../sjoin/sjoin.cpp" -lavformat -lavcodec -lavfilter -lavutil -lpthread -lswresample -lswscale -o DSVSCA_debug
+DSVSCA: copy-headers
+	g++ -I../../include/ -c filter.cpp -o ../../build/filter.o
 
-clean:
-	rm -f DSVSCA_debug DSVSCA
+debug: copy-headers
+	g++ -g -c filter.cpp -o ../../build/filter.o
+
+copy-headers:
+	cp *.h ../../include/
