@@ -56,7 +56,7 @@ bfloat * repack_wave(float * source, size_t source_length, uint32_t current_dela
     size_t source_index = 0;
     for (uint32_t i = actual_current_delay; i < *output_size; i++) {
         for (size_t x = 0; x < samples_per_float; x++) {
-            output[i].b[x] = ((bfloat*)source)[source_index].b[0];
+            output[i].b[x] = source[source_index];
             source_index++;
         }
     }
@@ -123,7 +123,7 @@ Wave * readFile(const char * fileName) {
     return wave;
 }
 
-void writeFile(const char * fileName, Wave * wave, bfloat * left, bfloat * right, size_t length) {
+void writeFile(const char * fileName, const Wave * wave, bfloat * left, bfloat * right, size_t length) {
     std::ofstream f(fileName, std::ios::out | std::ios::binary);
     if (!f.is_open()) return;
 
@@ -190,7 +190,7 @@ bfloat** virtualize(const Wave * source, const char * sofaFile, size_t * data_le
     float rightIR[filter_length];
     float left_delay_f = -1;
     float right_delay_f = -1;
-    mysofa_getfilter_float(hrtf, x, y, z, leftIR, rightIR, &left_delay_f, &right_delay_f);
+    mysofa_getfilter_float(hrtf, x, y, z, (float*)leftIR, (float*)rightIR, &left_delay_f, &right_delay_f);
 
     uint32_t left_delay = 0;
     uint32_t right_delay = 0;
@@ -207,10 +207,14 @@ bfloat** virtualize(const Wave * source, const char * sofaFile, size_t * data_le
     //    for (uint32_t x = 0; x < *data_length; x++) out[i][0].f = 0;
     //}
 
+    //size_t new_filter_length;
+    //float * unpacked_left_ir = unpack_wave(leftIR, filter_length, &new_filter_length);
+    //float * unpacked_right_ir = unpack_wave(rightIR, filter_length, &new_filter_length);
+
     fftconvolver::FFTConvolver left_conv;
     fftconvolver::FFTConvolver right_conv;
-    bool left_success = left_conv.init(256, leftIR, filter_length);
-    bool right_success = right_conv.init(256, rightIR, filter_length);
+    bool left_success = left_conv.init(8, leftIR, filter_length);
+    bool right_success = right_conv.init(8, rightIR, filter_length);
 
     if (!left_success) printf("Left Convolution failed during init.\n");
     if (!right_success) printf("Right Convolution failed during init.\n");
