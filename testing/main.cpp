@@ -1,4 +1,5 @@
 #include <cmath>
+#include <climits>
 #include <fstream>
 #include <iostream>
 #include <string.h>
@@ -31,14 +32,15 @@ struct Wave {
 };
 
 float * unpack_wave(bfloat * source, size_t source_length, size_t * output_size) {
-    size_t samples_per_float = 2;
+    const int16_t max = SHRT_MAX;
+    const size_t samples_per_float = 2;
     *output_size = samples_per_float * source_length;
     float * output = new float[*output_size];
 
     size_t output_index = 0;
     for (size_t i = 0; i < source_length; i++) {
         for (size_t x = 0; x < samples_per_float; x++) {
-            output[output_index] = ((uint32_t)source[i].b[x]) & 0xFFFF;
+            output[output_index] = ((float)source[i].b[x] / max);
             output_index++;
         }
     }
@@ -47,7 +49,8 @@ float * unpack_wave(bfloat * source, size_t source_length, size_t * output_size)
 }
 
 bfloat * repack_wave(float * source, size_t source_length, uint32_t current_delay, uint32_t overall_delay, size_t * output_size) {
-    size_t samples_per_float = 2;
+    const int16_t max = SHRT_MAX;
+    const size_t samples_per_float = 2;
     uint32_t actual_overall_delay = overall_delay / samples_per_float;
     uint32_t actual_current_delay = current_delay / samples_per_float;
     *output_size = std::ceil(source_length / samples_per_float) + actual_overall_delay;
@@ -56,7 +59,7 @@ bfloat * repack_wave(float * source, size_t source_length, uint32_t current_dela
     size_t source_index = 0;
     for (uint32_t i = actual_current_delay; i < *output_size; i++) {
         for (size_t x = 0; x < samples_per_float; x++) {
-            output[i].b[x] = source[source_index];
+            output[i].b[x] = (int16_t)(source[source_index] * max);
             source_index++;
         }
     }
@@ -184,7 +187,7 @@ bfloat** virtualize(const Wave * source, const char * sofaFile, size_t * data_le
         return NULL;
     }
 
-    // get IR and delay for front left (1 1 0)
+    // get IR and delay
     float leftIR[filter_length];
     float rightIR[filter_length];
     float left_delay_f = -1;
@@ -199,14 +202,6 @@ bfloat** virtualize(const Wave * source, const char * sofaFile, size_t * data_le
     *data_length += (overall_delay / 2);
 
     bfloat ** out = new bfloat*[2];
-    //for (uint16_t i = 0; i < 2; i++) {
-    //    out[i] = new bfloat[*data_length];
-    //    for (uint32_t x = 0; x < *data_length; x++) out[i][0].f = 0;
-    //}
-
-    //size_t new_filter_length;
-    //float * unpacked_left_ir = unpack_wave((bfloat*)leftIR, filter_length, &new_filter_length);
-    //float * unpacked_right_ir = unpack_wave((bfloat*)rightIR, filter_length, &new_filter_length);
 
     fftconvolver::FFTConvolver left_conv;
     fftconvolver::FFTConvolver right_conv;
@@ -223,18 +218,16 @@ bfloat** virtualize(const Wave * source, const char * sofaFile, size_t * data_le
     float * out_conv_right = new float[to_conv_size];
 
     left_conv.process(to_conv, out_conv_left, to_conv_size);
-    //left_conv.process((float*)source->data, (float*)(out[0] + left_delay), *data_length);
     right_conv.process(to_conv, out_conv_right, to_conv_size);
-    //right_conv.process((float*)source->data, (float*)(out[1] + right_delay), *data_length);
 
     size_t output_size_left;
     size_t output_size_right;
     out[0] = repack_wave(out_conv_left, to_conv_size, left_delay, overall_delay, &output_size_left);
     out[1] = repack_wave(out_conv_right, to_conv_size, right_delay, overall_delay, &output_size_right);
 
-    //memcpy((float*)(out[0] + left_delay), (float*)source->data, source->chunk2_size);
-    //memcpy((float*)(out[1] + right_delay), (float*)source->data, source->chunk2_size);
-
+    delete[] to_conv;
+    delete[] out_conv_left;
+    delete[] out_conv_right;
     mysofa_close(hrtf);
 
     return out;
