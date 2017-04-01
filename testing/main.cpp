@@ -80,7 +80,6 @@ Wave * readFile(const char * fileName) {
     if (!f.is_open()) return NULL;
     Wave * wave = new Wave();
     std::ifstream::pos_type fileSize = f.tellg();
-    printf("File Size: %d\n", (int)fileSize);
     char * contents = new char[fileSize];
     f.seekg(0, std::ios::beg);
     f.read(contents, fileSize);
@@ -117,8 +116,8 @@ Wave * readFile(const char * fileName) {
     memcpy(wave->data, contents + read, wave->chunk2_size);
     read += wave->chunk2_size;
 
-    printf("Input:\nChunk0 ID: %.*s\nSize: %d\nFormat: %.*s\nChunk1 ID: %.*s\nSize: %d\nAudio Format: %d\nNum Channels: %d\nSample Rate: %d\nByte Rate: %d\nByte Align: %d\nBits Per Sample: %d\nChunk2 ID: %.*s\nSize: %d\n\n",
-            4, wave->chunk0_id, wave->chunk0_size, 4, wave->format, 4, wave->chunk1_id, wave->chunk1_size, wave->audio_format, wave->num_channels, wave->sample_rate, wave->byte_rate, wave->block_align, wave->bits_per_sample, 4, wave->chunk2_id, wave->chunk2_size);
+    //printf("Input:\nChunk0 ID: %.*s\nSize: %d\nFormat: %.*s\nChunk1 ID: %.*s\nSize: %d\nAudio Format: %d\nNum Channels: %d\nSample Rate: %d\nByte Rate: %d\nByte Align: %d\nBits Per Sample: %d\nChunk2 ID: %.*s\nSize: %d\n\n",
+    //        4, wave->chunk0_id, wave->chunk0_size, 4, wave->format, 4, wave->chunk1_id, wave->chunk1_size, wave->audio_format, wave->num_channels, wave->sample_rate, wave->byte_rate, wave->block_align, wave->bits_per_sample, 4, wave->chunk2_id, wave->chunk2_size);
 
     return wave;
 }
@@ -198,8 +197,6 @@ bfloat** virtualize(const Wave * source, const char * sofaFile, size_t * data_le
     else if (left_delay_f > right_delay_f) left_delay = std::round((left_delay_f - right_delay_f) * sample_rate);
     uint32_t overall_delay = left_delay + right_delay;
     *data_length += (overall_delay / 2);
-    printf("Old Left Delay: %f, Old Right Delay: %f\n", left_delay_f, right_delay_f);
-    printf("Left Delay: %d, Right Delay: %d\n", left_delay, right_delay);
 
     bfloat ** out = new bfloat*[2];
     //for (uint16_t i = 0; i < 2; i++) {
@@ -208,8 +205,8 @@ bfloat** virtualize(const Wave * source, const char * sofaFile, size_t * data_le
     //}
 
     //size_t new_filter_length;
-    //float * unpacked_left_ir = unpack_wave(leftIR, filter_length, &new_filter_length);
-    //float * unpacked_right_ir = unpack_wave(rightIR, filter_length, &new_filter_length);
+    //float * unpacked_left_ir = unpack_wave((bfloat*)leftIR, filter_length, &new_filter_length);
+    //float * unpacked_right_ir = unpack_wave((bfloat*)rightIR, filter_length, &new_filter_length);
 
     fftconvolver::FFTConvolver left_conv;
     fftconvolver::FFTConvolver right_conv;

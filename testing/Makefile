@@ -4,5 +4,8 @@ default:
 run: default
 	./main x1.wav subject_119.sofa
 
+gdb: default
+	gdb -tui --args ./main x1.wav subject_119.sofa
+
 clean:
 	rm -f main out.*
