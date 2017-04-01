@@ -1,6 +1,7 @@
 #include <iostream>
 #include "input/filter.h"
 #include "input/format.h"
+#include "sjoin/sjoin.h"
 #include <ctime>
 
 int process_filter_graph(Format *fmt, Filter *filter) {
@@ -46,7 +47,6 @@ int process_filter_graph(Format *fmt, Filter *filter) {
                     // This is where you will work with each processed frame. 
                     
                     ret = av_buffersink_get_frame(filter->abuffersink_ctx_map["FR"], filt_frame); 
-                    
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     //std::cout << "FR"; 
                     av_frame_unref(filt_frame);
@@ -100,8 +100,9 @@ int process_filter_graph(Format *fmt, Filter *filter) {
 
 int main(int argc, char *argv[]) {
     clock_t begin = clock(); 
-    Format *format = new Format("moana.mp4");
+    Format *format = new Format("sw.mp4");
     Filter *filter = new Filter(format);    
+    SJoin  *sjoin  = new SJoin(format);
     clock_t end = clock();
     
     std::cout << "Filter initialization: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;
