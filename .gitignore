@@ -28,8 +28,21 @@
 *.out
 *.app
 
-src/openal-src/dependencies/openal-soft-1.17.2/
-src/openal-src/dependencies/freealut-master/
-src/openal-src/dependencies/master.zip
-src/openal-src/dependencies/openal-soft-1.17.2.tar.bz2
-src/openal-src/example/openal-example
+# Editor Files
+*.swp
+
+# Video/Audio Files
+*.mp4
+*.mkv
+*.wav
+
+# Sofa Files
+*.sofa
+
+# Work Directories
+include/
+build/*
+dependencies/*
+!dependencies/Makefile
+!build/Makefile
+!testing/*

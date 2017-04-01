@@ -3,21 +3,22 @@
 #include "input/format.h"
 #include "sjoin/sjoin.h"
 #include <ctime>
+#include "mysofa.h"
 
 int process_filter_graph(Format *fmt, Filter *filter) {
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
-    
+
     int got_frame;
     int ret = 0;
 
     /* Read all of the packets */
     packet0.data = NULL;
     packet.data = NULL;
-    
+
     while(1) {
-        
+
         if(!packet0.data) {
             ret = av_read_frame(fmt->format_ctx, &packet);
             if(ret < 0) break;
@@ -35,7 +36,7 @@ int process_filter_graph(Format *fmt, Filter *filter) {
 
             packet.size -= ret;
             packet.data += ret;
-            
+
             if(got_frame) {
                 /* push audio from decoded frame through filter graph */
                 if(av_buffersrc_add_frame_flags(filter->abuffer_ctx, frame, 0) < 0) {
@@ -47,8 +48,12 @@ int process_filter_graph(Format *fmt, Filter *filter) {
                     // This is where you will work with each processed frame. 
                     
                     ret = av_buffersink_get_frame(filter->abuffersink_ctx_map["FR"], filt_frame); 
+
                     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                    //std::cout << "FR"; 
+
+                    uint8_t sample_count = filt_frame->nb_samples;
+                    int sample_rate = filt_frame->sample_rate;
+                    //std::cout << "FR";
                     av_frame_unref(filt_frame);
                     
                     ret = av_buffersink_get_frame(filter->abuffersink_ctx_map["FL"], filt_frame);
@@ -80,10 +85,11 @@ int process_filter_graph(Format *fmt, Filter *filter) {
                         delete filter;
                         delete fmt;
                         break; 
+
                     }
                     //std::cout << "Preparing to print" << std::endl;
                     //print_frame(filt_frame);
-                    av_frame_unref(filt_frame);    
+                    av_frame_unref(filt_frame);
                 }
             }
             if(packet.size <= 0) av_free_packet(&packet0);
@@ -113,6 +119,7 @@ int main(int argc, char *argv[]) {
 
     std::cout << "Processing Time: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;
     return 0; 
+
 }
 
 
