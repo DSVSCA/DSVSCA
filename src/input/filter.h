@@ -18,26 +18,39 @@ extern "C" {
 
 class Filter {
 
+public:
+    enum Channel {
+        FL = 0,
+        FR = 1,
+        FC = 2,
+        LFE = 3,
+        BL = 4,
+        BR = 5,
+    };
+
+    Filter(Format *fmt);
+    ~Filter();
+    static AVFilterContext *abuffer_ctx;
+    static std::map<Channel, AVFilterContext*> abuffersink_ctx_map;
+    
+    static Channel str_to_channel(std::string channel_name);
+    static void get_coords(Channel channel, float * x, float * y, float * z);
+
+    static void filter_free();
+
 private:
     static Format *format;
 
     static AVFilterGraph *filter_graph;
     static AVFilterContext *channelsplit_ctx;
-    
-    static int init_filter_graph(); 
+
+    static int init_filter_graph();
     static int init_abuffer_ctx();
     static int init_abuffersink_ctx();
-    static int init_channelsplit_ctx(); 
-   
+    static int init_channelsplit_ctx();
+
     static void print_frame(const AVFrame *frame);
     static char strbuf[512];
-
-public:
-    Filter(Format *fmt); 
-    ~Filter();
-    static AVFilterContext *abuffer_ctx;
-    static std::map<std::string, AVFilterContext*> abuffersink_ctx_map;
-    static void filter_free();
 };
 
 #endif

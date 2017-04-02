@@ -2,27 +2,27 @@
 
 // The x-axis (1 0 0) is the listening direction. The y-axis (0 1 0) is the left side of the listener. The z-axis (0 0 1) is upwards.
 Virtualizer::Virtualizer(const char * sofa_file_name, int sample_rate, float x, float y, float z, int block_size) {
-    this->open_sofa(sofa_file_name, sample_rate); 
-    this->init(hrtf, sample_rate, x, y, z, block_size);
+    this->open_sofa(sofa_file_name, sample_rate);
+    this->init(sample_rate, x, y, z, block_size);
 }
 
-Virtualizer::Virtualizer(sofa_file * hrtf, int filter_length, int sample_rate, float x, float y, float z, int block_size) {
-    this->hrtf = hrtf;
-    this->filter_length = filter_length;
+Virtualizer::Virtualizer(complete_sofa sofa_, int sample_rate, float x, float y, float z, int block_size) {
+    this->hrtf = sofa_.hrtf;
+    this->filter_length = sofa_.filter_length;
 
-    this->init(hrtf, sample_rate, x, y, z, block_size);
+    this->init(sample_rate, x, y, z, block_size);
 }
 
 Virtualizer::~Virtualizer() {
     this->close_sofa();
-    delete[] this->right_delay;
-    delete[] this->left_delay;
+    delete[] this->right_ir;
+    delete[] this->left_ir;
     delete[] this->overflow_audio;
     delete this->left_conv;
     delete this->right_conv;
 }
 
-void Virtualizer::init(sofa_file * hrtf, int sample_rate, float x, float y, float z, int block_size) {
+void Virtualizer::init(int sample_rate, float x, float y, float z, int block_size) {
     left_ir = new float[this->filter_length];
     right_ir = new float[this->filter_length];
     float left_delay_f = -1;
@@ -40,21 +40,21 @@ void Virtualizer::init(sofa_file * hrtf, int sample_rate, float x, float y, floa
 
     this->left_conv = new fftconvolver::FFTConvolver();
     this->right_conv = new fftconvolver::FFTConvolver();
-    bool left_success = this->left_conv.init(block_size, this->left_ir, this->filter_length);
-    bool right_success = this->right_conv.init(block_size, this->right_ir, this->filter_length);
-    
+    bool left_success = this->left_conv->init(block_size, this->left_ir, this->filter_length);
+    bool right_success = this->right_conv->init(block_size, this->right_ir, this->filter_length);
+
     if (!left_success) printf("Left Convolution failed during init.\n");
     if (!right_success) printf("Right Convolution failed during init.\n");
     //TODO: do something if this fails
 }
 
-float ** process(const float * source, size_t data_length) {
+float ** Virtualizer::process(const float * source, size_t data_length) {
     float ** out = new float*[2];
     float * out_conv_left = new float[data_length];
     float * out_conv_right = new float[data_length];
 
-    left_conv.process(source, out_conv_left, data_length);
-    right_conv.process(source, out_conv_right, data_length);
+    left_conv->process(source, out_conv_left, data_length);
+    right_conv->process(source, out_conv_right, data_length);
 
     // TODO: right now, we just drop the audio at the end of the file for the delayed channel. So we need to figure out how to extend the audio by the amount of the overall delay.
     // add in the delay
@@ -79,7 +79,7 @@ float ** process(const float * source, size_t data_length) {
     return out;
 }
 
-void open_sofa(const char * file_name, int sample_rate) {
+void Virtualizer::open_sofa(const char * file_name, int sample_rate) {
     if (hrtf != NULL || filter_length > 0) return;
 
     int err;
@@ -89,13 +89,13 @@ void open_sofa(const char * file_name, int sample_rate) {
     if (filter_length < 1) printf("No FIR information is available for this HRTF.\n");
 }
 
-void close_sofa() {
+void Virtualizer::close_sofa() {
     mysofa_close(hrtf);
     hrtf = NULL;
     filter_length = 0;
 }
 
-complete_sofa get_hrtf() {
+complete_sofa Virtualizer::get_hrtf() {
     complete_sofa sofa;
     sofa.hrtf = this->hrtf;
     sofa.filter_length = this->filter_length;
@@ -116,7 +116,6 @@ uint8_t * Virtualizer::get_short_samples(float * buffer, AVSampleFormat format, 
             case AV_SAMPLE_FMT_U8:
             case AV_SAMPLE_FMT_S16:
             case AV_SAMPLE_FMT_S32:
-            case AV_SAMPLE_FMT_U8P:
             case AV_SAMPLE_FMT_U8P:
             case AV_SAMPLE_FMT_S16P:
             case AV_SAMPLE_FMT_S32P:
@@ -151,7 +150,7 @@ uint8_t * Virtualizer::get_short_samples(float * buffer, AVSampleFormat format, 
     }
 
     return out;
-} 
+}
 
 float * Virtualizer::get_float_samples(uint8_t * buffer, AVSampleFormat format, uint8_t sample_count) {
     // based on implementation here: https://www.targodan.de/post/decoding-audio-files-with-ffmpeg/
@@ -185,7 +184,6 @@ float * Virtualizer::get_float_samples(uint8_t * buffer, AVSampleFormat format, 
             case AV_SAMPLE_FMT_U8:
             case AV_SAMPLE_FMT_S16:
             case AV_SAMPLE_FMT_S32:
-            case AV_SAMPLE_FMT_U8P:
             case AV_SAMPLE_FMT_U8P:
             case AV_SAMPLE_FMT_S16P:
             case AV_SAMPLE_FMT_S32P:
