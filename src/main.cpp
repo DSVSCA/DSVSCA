@@ -36,7 +36,6 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
     /* Read all of the packets */
     packet0.data = NULL;
     packet.data = NULL;
-
     while(1) {
 
         if(!packet0.data) {
@@ -65,7 +64,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                     break;
                 }
                 
-                while(1) {
+                while(ret >= 0) {
                     // This is where you will work with each processed frame.
 
                     for (auto it = filter->abuffersink_ctx_map.begin(); it != filter->abuffersink_ctx_map.end(); it++) {
@@ -83,7 +82,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                           fwrite(packet_out.data, 1, packet_out.size, f);
                           av_free_packet(&packet_out);
                         }   
-
+                        
                         uint8_t sample_count = filt_frame->nb_samples;
                         int sample_rate = filt_frame->sample_rate;
 
@@ -119,20 +118,11 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         delete[] float_results[1];
                         delete[] float_results;
                         delete[] samples;
-
+                        
                         //std::cout << "FR";
                         av_frame_unref(filt_frame);
                     }
-
-                    if(ret < 0) {
-                        av_frame_free(&frame);
-                        av_frame_free(&filt_frame);
-                        delete filter;
-                        delete fmt;
-                        break;
-                    }
-                    //std::cout << "Preparing to print" << std::endl;
-                    //print_frame(filt_frame);
+                    
                     av_frame_unref(filt_frame);
                 }
             }
