@@ -10,7 +10,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
 
-    std::unordered_map<int, Virtualizer*> c2v_;
+    std::unordered_map<Filter::Channel, Virtualizer*, std::hash<int>> c2v_;
     complete_sofa sofa_;
     int got_frame;
     int ret = 0;
@@ -65,13 +65,13 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                             if (sofa_.hrtf == NULL) {
                                 //TODO: delete these after execution
                                 Virtualizer * virt = new Virtualizer(sofa_file_name.c_str(), sample_rate, x, y, z);
-                                c2v_.insert(std::make_pair((int)it->first, virt));
+                                c2v_.insert(std::make_pair(it->first, virt));
                                 sofa_ = virt->get_hrtf();
                             }
                             else {
                                 //TODO: delete these after execution
                                 Virtualizer * virt = new Virtualizer(sofa_, sample_rate, x, y, z);
-                                c2v_.insert(std::make_pair((int)it->first, virt));
+                                c2v_.insert(std::make_pair(it->first, virt));
                             }
                         }
 
