@@ -25,7 +25,7 @@ AVFilterContext *Filter::channelsplit_ctx = NULL;  // Splits channels into multi
 
 // Buffer audio streams and make available at the end of a filter chain. 6 here for a 5.1
 // channel audio setup
-std::map<std::string, AVFilterContext*> Filter::abuffersink_ctx_map;
+std::map<Filter::Channel, AVFilterContext*> Filter::abuffersink_ctx_map;
 
 Filter::Filter(Format *fmt) {  
     std::cout << "Initializing libav* " << std::endl;
@@ -97,17 +97,17 @@ int Filter::init_filter_graph() {
     std::cout << "  * Linking Filters" << std::endl;
     error = avfilter_link(abuffer_ctx, 0, channelsplit_ctx, 0);
     if(error >= 0)
-        error = avfilter_link(channelsplit_ctx, 0, abuffersink_ctx_map["FL"], 0);
+        error = avfilter_link(channelsplit_ctx, 0, abuffersink_ctx_map[FL], 0);
     if(error >= 0)
-        error = avfilter_link(channelsplit_ctx, 1, abuffersink_ctx_map["FR"], 0);
+        error = avfilter_link(channelsplit_ctx, 1, abuffersink_ctx_map[FR], 0);
     if(error >= 0)
-        error = avfilter_link(channelsplit_ctx, 2, abuffersink_ctx_map["FC"], 0);
+        error = avfilter_link(channelsplit_ctx, 2, abuffersink_ctx_map[FC], 0);
     if(error >= 0)
-        error = avfilter_link(channelsplit_ctx, 3, abuffersink_ctx_map["LFE"], 0);
+        error = avfilter_link(channelsplit_ctx, 3, abuffersink_ctx_map[LFE], 0);
     if(error >= 0)
-        error = avfilter_link(channelsplit_ctx, 4, abuffersink_ctx_map["BL"], 0);
+        error = avfilter_link(channelsplit_ctx, 4, abuffersink_ctx_map[BL], 0);
     if(error >= 0)
-        error = avfilter_link(channelsplit_ctx, 5, abuffersink_ctx_map["BR"], 0);
+        error = avfilter_link(channelsplit_ctx, 5, abuffersink_ctx_map[BR], 0);
     if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "error linking filter graph\n");
         return error;
@@ -208,8 +208,9 @@ int Filter::init_abuffersink_ctx() {
          }
         
         f_name.assign(name);
-        abuffersink_ctx_map[f_name] = sink_ctx;
-        std::cout << f_name << " => " << abuffersink_ctx_map[f_name] << std::endl;
+        Channel ch = str_to_channel(f_name);
+        abuffersink_ctx_map[ch] = sink_ctx;
+        std::cout << f_name << " => " << abuffersink_ctx_map[ch] << std::endl;
     }
     
     if(error < 0) {
@@ -220,5 +221,41 @@ int Filter::init_abuffersink_ctx() {
     return error;
 }
 
+Filter::Channel Filter::str_to_channel(std::string channel_name) {
+    if (channel_name == "FL") return FL;
+    else if (channel_name == "FR") return FR;
+    else if (channel_name == "FC") return FC;
+    else if (channel_name == "LFE") return LFE;
+    else if (channel_name == "BR") return BR;
+    else if (channel_name == "BL") return BL;
+    else return FL;
+}
 
+// The x-axis (1 0 0) is the listening direction. The y-axis (0 1 0) is the left side of the listener. The z-axis (0 0 1) is upwards.
+void Filter::get_coords(Channel channel, float * x, float * y, float * z) {
+    *z = 0;
 
+    switch (channel) {
+        case FL:
+            *x = 1;
+            *y = 1;
+            break;
+        case FR:
+            *x = 1;
+            *y = -1;
+            break;
+        case FC:
+        case LFE:
+            *x = 1;
+            *y = 0;
+            break;
+        case BL:
+            *x = -1;
+            *y = 1;
+            break;
+        case BR:
+            *x = -1;
+            *y = -1;
+            break;
+    }
+}
