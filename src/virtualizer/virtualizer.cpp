@@ -60,17 +60,26 @@ float ** Virtualizer::process(const float * source, size_t data_length) {
     // add in the delay
     float * new_overflow = new float[this->overall_delay];
     if (right_delay > left_delay) {
-        // move the end of the current float array to our new overflow audio array
-        memmove(new_overflow, out_conv_right + data_length - this->overall_delay, this->overall_delay);
         // shift everything in the array back to make room at the front to place the audio in our overflow_audio buffer
-        memmove(out_conv_right + this->overall_delay, out_conv_right, data_length - this->overall_delay);
+        size_t sub_data_length = data_length - this->overall_delay;
+        for (size_t i = data_length - 1; i >= this->overall_delay; i--) {
+            if (i + this->overall_delay >= data_length) new_overflow[i - (data_length - 1) + (this->overall_delay - 1)] = out_conv_right[i];
+            out_conv_right[i] = out_conv_right[i - this->overall_delay];
+        }
+
         // copy our overflow audio buffer to the front of the array
-        memmove(out_conv_right, this->overflow_audio, this->overall_delay);
+        memcpy(out_conv_right, this->overflow_audio, this->overall_delay);
     }
     else if (left_delay > right_delay) {
-        memmove(new_overflow, out_conv_left + data_length - this->overall_delay, this->overall_delay);
-        memmove(out_conv_left + this->overall_delay, out_conv_left, data_length - this->overall_delay);
-        memmove(out_conv_left, this->overflow_audio, this->overall_delay);
+        // shift everything in the array back to make room at the front to place the audio in our overflow_audio buffer
+        size_t sub_data_length = data_length - this->overall_delay;
+        for (size_t i = data_length - 1; i >= this->overall_delay; i--) {
+            if (i + this->overall_delay >= data_length) new_overflow[i - (data_length - 1) + (this->overall_delay - 1)] = out_conv_left[i];
+            out_conv_left[i] = out_conv_left[i - this->overall_delay];
+        }
+
+        // copy our overflow audio buffer to the front of the array
+        memcpy(out_conv_left, this->overflow_audio, this->overall_delay);
     }
 
     delete[] this->overflow_audio;
@@ -103,14 +112,14 @@ complete_sofa Virtualizer::get_hrtf() {
     return sofa;
 }
 
-uint8_t * Virtualizer::get_short_samples(float * buffer, AVSampleFormat format, uint8_t sample_count) {
+uint8_t * Virtualizer::get_short_samples(float * buffer, AVSampleFormat format, int sample_count) {
     // based on implementation here: https://www.targodan.de/post/decoding-audio-files-with-ffmpeg/
-    uint8_t * out = new uint8_t[sample_count];
     int sample_size = av_get_bytes_per_sample(format);
+    uint8_t * out = new uint8_t[sample_count * (sample_size / 2)];
     int64_t num_signed_bits = sample_size * 8 - 1;
     int64_t max_val = (1 << num_signed_bits) - 1;
 
-    for (uint8_t i = 0; i < sample_count; i++) {
+    for (int i = 0; i < sample_count; i++) {
         int64_t current_val;
         switch(format) {
             case AV_SAMPLE_FMT_U8:
@@ -152,14 +161,14 @@ uint8_t * Virtualizer::get_short_samples(float * buffer, AVSampleFormat format, 
     return out;
 }
 
-float * Virtualizer::get_float_samples(uint8_t * buffer, AVSampleFormat format, uint8_t sample_count) {
+float * Virtualizer::get_float_samples(uint8_t * buffer, AVSampleFormat format, int sample_count) {
     // based on implementation here: https://www.targodan.de/post/decoding-audio-files-with-ffmpeg/
     float * out = new float[sample_count];
     int sample_size = av_get_bytes_per_sample(format);
     int64_t num_signed_bits = sample_size * 8 - 1;
     int64_t max_val = (1 << num_signed_bits) - 1;
 
-    for (uint8_t i = 0; i < sample_count; i++) {
+    for (int i = 0; i < sample_count; i++) {
         int64_t current_val;
         switch (sample_size) {
             case 1:

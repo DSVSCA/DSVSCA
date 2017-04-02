@@ -1,7 +1,7 @@
-DSVSCA: copy-headers
+DSVSCA:
 	g++ -I../../include/ -c sjoin.cpp -o ../../build/sjoin.o 
 
-debug: copy-headers
+debug:
 	g++ -g -I../../include/ -c sjoin.cpp -o ../../build/sjoin.o
 copy-headers:
 	cp *.h ../../include/

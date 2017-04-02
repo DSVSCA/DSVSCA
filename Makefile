@@ -17,4 +17,4 @@ clean-deps:
 
 clean:
 	rm -rf ./include
-	find ./build/ -type f ! \( -iname "makefile" -or -iname "*.mp4" -or -iname "*.sofa" \) -delete
+	find ./build/ -type f ! \( -iname "makefile" -or -iname "*.mp4" -or -iname "*.sofa" -or -iname "*.wav" \) -delete
