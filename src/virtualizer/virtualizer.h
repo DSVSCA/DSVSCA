@@ -46,10 +46,10 @@ private:
     fftconvolver::FFTConvolver * left_conv;
     fftconvolver::FFTConvolver * right_conv;
 
-    sofa_file * hrtf;
-    float * left_ir;
-    float * right_ir;
-    float * overflow_audio;
+    sofa_file * hrtf = NULL;
+    float * left_ir = NULL;
+    float * right_ir = NULL;
+    float * overflow_audio = NULL;
     int filter_length = 0;
     uint32_t left_delay = 0;
     uint32_t right_delay = 0;

@@ -2,6 +2,10 @@ default: build-deps
 	$(MAKE) -C ./src
 	$(MAKE) -C ./build
 
+debug: build-deps
+	$(MAKE) -C ./src -f Makefile debug
+	$(MAKE) -C ./build
+
 make-dirs:
 	if [ ! -d "./include" ]; then mkdir include; fi
 
