@@ -1,9 +1,8 @@
-
-DSVSCA: copy-headers
+DSVSCA:
 	g++ -I../../include/ -c filter.cpp -o ../../build/filter.o 
 	g++ -I../../include/ -c format.cpp -o ../../build/format.o
 
-debug: copy-headers
+debug:
 	g++ -g -I../../include/ -c filter.cpp -o ../../build/filter.o
 	g++ -g -I../../include/ -c format.cpp -o ../../build/format.o
 

@@ -34,8 +34,8 @@ public:
     float ** process(const float * source, size_t data_length);
     complete_sofa get_hrtf();
 
-    static uint8_t * get_short_samples(float * buffer, AVSampleFormat format, uint8_t sample_count);
-    static float * get_float_samples(uint8_t * buffer, AVSampleFormat format, uint8_t sample_count);
+    static uint8_t * get_short_samples(float * buffer, AVSampleFormat format, int sample_count);
+    static float * get_float_samples(uint8_t * buffer, AVSampleFormat format, int sample_count);
 
 private:
     Virtualizer();
@@ -51,9 +51,9 @@ private:
     float * right_ir = NULL;
     float * overflow_audio = NULL;
     int filter_length = 0;
-    uint32_t left_delay = 0;
-    uint32_t right_delay = 0;
-    uint32_t overall_delay = 0;
+    size_t left_delay = 0;
+    size_t right_delay = 0;
+    size_t overall_delay = 0;
 };
 
 #endif

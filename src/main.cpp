@@ -53,7 +53,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         ret = av_buffersink_get_frame(it->second, filt_frame);
                         if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
 
-                        uint8_t sample_count = filt_frame->nb_samples;
+                        int sample_count = filt_frame->nb_samples;
                         int sample_rate = filt_frame->sample_rate;
 
                         if (c2v_.count(it->first) == 0) {
