@@ -33,18 +33,18 @@ private:
     static int init_amerge_ctx();
     static int init_abuffersink_ctx();
     
-    static std::vector<AVFilterContext*> left_abuffers_ctx;
-    static std::vector<AVFilterContext*> right_abuffers_ctx;
     static AVFilterContext *left_amix_ctx;
     static AVFilterContext *right_amix_ctx;
     static AVFilterContext *amerge_ctx;
-    static AVFilterContext *abuffersink_ctx;
 public:
     // TODO: Can read from abuffersink as abuffer?
     SJoin(Format *fmt);
     ~SJoin();
 
-    
+    static std::vector<AVFilterContext*> left_abuffers_ctx;
+    static std::vector<AVFilterContext*> right_abuffers_ctx;
+
+    static AVFilterContext *abuffersink_ctx;
     //static AVFilterContext *abuffer_ctx; 
     
 };
