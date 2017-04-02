@@ -115,7 +115,7 @@ complete_sofa Virtualizer::get_hrtf() {
 uint8_t * Virtualizer::get_short_samples(float * buffer, AVSampleFormat format, int sample_count) {
     // based on implementation here: https://www.targodan.de/post/decoding-audio-files-with-ffmpeg/
     int sample_size = av_get_bytes_per_sample(format);
-    uint8_t * out = new uint8_t[sample_count * (sample_size / 2)];
+    uint8_t * out = (uint8_t*)malloc(sample_size * sample_count);
     int64_t num_signed_bits = sample_size * 8 - 1;
     int64_t max_val = (1 << num_signed_bits) - 1;
 
