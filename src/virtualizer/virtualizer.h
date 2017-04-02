@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <unordered_map>
 #include <FFTConvolver.h>
 
 extern "C" {
@@ -18,18 +19,19 @@ extern "C" {
 #define VIRTUALIZER_H
 
 typedef struct MYSOFA_EASY sofa_file;
-typedef struct complete_sofa {
+struct complete_sofa {
     sofa_file * hrtf = NULL;
     int filter_length;
 };
 
 class Virtualizer {
 public:
+    // The x-axis (1 0 0) is the listening direction. The y-axis (0 1 0) is the left side of the listener. The z-axis (0 0 1) is upwards.
     Virtualizer(const char * sofa_file_name, int sample_rate, float x, float y, float z, int block_size = 8);
-    Virtualizer(sofa_file * hrtf, int filter_length, int sample_rate, float x, float y, float z, int block_size = 8);
+    Virtualizer(complete_sofa sofa_, int sample_rate, float x, float y, float z, int block_size = 8);
     ~Virtualizer();
-    
-    float ** process();
+
+    float ** process(const float * source, size_t data_length);
     complete_sofa get_hrtf();
 
     static uint8_t * get_short_samples(float * buffer, AVSampleFormat format, uint8_t sample_count);
@@ -37,7 +39,7 @@ public:
 
 private:
     Virtualizer();
-    void init(sofa_file * hrtf, int sample_rate, float x, float y, float z, int block_size);
+    void init(int sample_rate, float x, float y, float z, int block_size);
     void open_sofa(const char * file_name, int sample_rate);
     void close_sofa();
 
@@ -52,6 +54,6 @@ private:
     uint32_t left_delay = 0;
     uint32_t right_delay = 0;
     uint32_t overall_delay = 0;
-}
+};
 
 #endif
