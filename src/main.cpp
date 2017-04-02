@@ -1,18 +1,36 @@
 #include <iostream>
 #include "input/filter.h"
 #include "input/format.h"
+#include "encoder/encoder.h"
 #include "sjoin/sjoin.h"
 #include "virtualizer/virtualizer.h"
 #include <ctime>
+#include <stdio.h>
 
 int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name) {
+    FILE *f;
+    const char *filename = "FL.aac";
+    
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
+    int got_frame;
 
+  
     std::unordered_map<Filter::Channel, Virtualizer*, std::hash<int>> c2v_;
     complete_sofa sofa_;
-    int got_frame;
+
+    AVPacket packet_out;
+    int got_output;
+
+    Encoder *encoder = new Encoder(AV_CODEC_ID_AC3,
+            fmt->decoder_ctx->bit_rate, AV_SAMPLE_FMT_FLTP);
+
+    f = fopen(filename, "wb");
+    if(!f) {
+        std::cout << "Error opening file" << std::endl;
+    }
+    
     int ret = 0;
 
     /* Read all of the packets */
@@ -40,18 +58,31 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
             packet.data += ret;
 
             if(got_frame) {
+
                 /* push audio from decoded frame through filter graph */
                 if(av_buffersrc_add_frame_flags(filter->abuffer_ctx, frame, 0) < 0) {
                     av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
                     break;
                 }
-
+                
                 while(1) {
                     // This is where you will work with each processed frame.
 
                     for (auto it = filter->abuffersink_ctx_map.begin(); it != filter->abuffersink_ctx_map.end(); it++) {
                         ret = av_buffersink_get_frame(it->second, filt_frame);
                         if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+                      
+                        // This will move once virtualizaiton works
+                        av_init_packet(&packet_out);
+                        packet_out.data = NULL;
+                        packet_out.size = 0;
+                    
+                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, filt_frame, &got_output);
+                        if(ret < 0) exit(1);
+                        if(got_output) {
+                          fwrite(packet_out.data, 1, packet_out.size, f);
+                          av_free_packet(&packet_out);
+                        }   
 
                         int sample_count = filt_frame->nb_samples;
                         int sample_rate = filt_frame->sample_rate;
@@ -110,7 +141,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
             av_free_packet(&packet0);
         }
     }
-
+    fclose(f);
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
     delete filter;

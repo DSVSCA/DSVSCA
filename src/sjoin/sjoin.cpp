@@ -126,7 +126,15 @@ int SJoin::init_filter_graph() {
     if(error < 0) 
         av_log(NULL, AV_LOG_ERROR, "Error linking amerge_ctx to abuffersink_ctx\n");
 
-    return 0;
+    error = avfilter_graph_config(filter_graph, NULL);
+    if(error < 0) {
+        av_log(NULL, AV_LOG_ERROR, "error configuring filter graph\n");
+        return error;
+    }
+
+    std::cout << "Filter graph initialized successfully" << std::endl;
+
+    return error;
 }
 
 int SJoin::init_left_abuffers_ctx() {
@@ -140,7 +148,7 @@ int SJoin::init_left_abuffers_ctx() {
     
     // Create the abuffer filter argument
     snprintf(strbuf, sizeof(strbuf), 
-            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
+            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%d",
             time_base.num, time_base.den, format->decoder_ctx->sample_rate,
             av_get_sample_fmt_name(format->decoder_ctx->sample_fmt),
             1);  
@@ -169,12 +177,12 @@ int SJoin::init_right_abuffers_ctx() {
     AVRational time_base = format->audio_stream->time_base;
     
     std::cout << "  Here is some more info about the right channel buffers: " << std::endl;
-    std::cout << "      - Layout: " << 1 << std::endl;
-    std::cout << "      - #channels: " << 1 << std::endl;
+    std::cout << "      - Layout: " << 2 << std::endl;
+    std::cout << "      - #channels: " << 2 << std::endl;
     
     // Create the abuffer filter argument
     snprintf(strbuf, sizeof(strbuf), 
-            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
+            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%d",
             time_base.num, time_base.den, format->decoder_ctx->sample_rate,
             av_get_sample_fmt_name(format->decoder_ctx->sample_fmt),
             2);  
