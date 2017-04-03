@@ -4,6 +4,7 @@ default: copy-headers
 	$(MAKE) -C ./virtualizer
 	$(MAKE) -C ./encoder
 	g++ -std=c++11 -c main.cpp -I../include/ -o ../build/main.o
+	$(MAKE) -C ./ui
 
 debug: copy-headers
 	$(MAKE) -C ./sjoin -f Makefile debug
@@ -11,6 +12,7 @@ debug: copy-headers
 	$(MAKE) -C ./virtualizer -f Makefile debug
 	$(MAKE) -C ./encoder -f Makefile debug
 	g++ -g -std=c++11 -c main.cpp -I../include/ -o ../build/main.o
+	$(MAKE) -C ./ui -f Makefile debug
 
 copy-headers:
 	$(MAKE) -C ./sjoin -f Makefile copy-headers
