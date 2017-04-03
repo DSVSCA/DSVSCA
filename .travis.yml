@@ -1,6 +1,7 @@
 language: cpp
 compiler: gcc
 before_install:
+  - sudo apt-get install ffmpeg
   - sudo apt-get install libavformat-dev
   - sudo apt-get install libavcodec-dev
   - sudo apt-get install libavutil-dev
