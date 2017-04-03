@@ -36,7 +36,7 @@ void Virtualizer::init(int sample_rate, float x, float y, float z, int block_siz
     this->overall_delay = this->left_delay + this->right_delay;
 
     this->overflow_audio = new float[this->overall_delay];
-    memset(this->overflow_audio, 0, this->overall_delay);
+    for (int i = 0; i < this->overall_delay; i++) this->overflow_audio[i] = 0;
 
     this->left_conv = new fftconvolver::FFTConvolver();
     this->right_conv = new fftconvolver::FFTConvolver();
@@ -52,6 +52,8 @@ float ** Virtualizer::process(const float * source, size_t data_length) {
     float ** out = new float*[2];
     float * out_conv_left = new float[data_length];
     float * out_conv_right = new float[data_length];
+    out[0] = out_conv_left;
+    out[1] = out_conv_right;
 
     left_conv->process(source, out_conv_left, data_length);
     right_conv->process(source, out_conv_right, data_length);
@@ -67,8 +69,8 @@ float ** Virtualizer::process(const float * source, size_t data_length) {
             out_conv_right[i] = out_conv_right[i - this->overall_delay];
         }
 
-        // copy our overflow audio buffer to the front of the array
-        memcpy(out_conv_right, this->overflow_audio, this->overall_delay);
+        // copy our overflow audio buffer to the front of the array. Multiply by four since we provide the number of bytes to copy
+        memcpy(out_conv_right, this->overflow_audio, this->overall_delay * 4);
     }
     else if (left_delay > right_delay) {
         // shift everything in the array back to make room at the front to place the audio in our overflow_audio buffer
@@ -78,8 +80,8 @@ float ** Virtualizer::process(const float * source, size_t data_length) {
             out_conv_left[i] = out_conv_left[i - this->overall_delay];
         }
 
-        // copy our overflow audio buffer to the front of the array
-        memcpy(out_conv_left, this->overflow_audio, this->overall_delay);
+        // copy our overflow audio buffer to the front of the array. Multiply by four since we provide the number of bytes to copy
+        memcpy(out_conv_left, this->overflow_audio, this->overall_delay * 4);
     }
 
     delete[] this->overflow_audio;
@@ -202,7 +204,8 @@ float * Virtualizer::get_float_samples(uint8_t * buffer, AVSampleFormat format, 
             case AV_SAMPLE_FMT_FLTP:
             case AV_SAMPLE_FMT_DBL:
             case AV_SAMPLE_FMT_DBLP:
-                out[i] = (float)current_val;
+                // yes, this is weird but it doesn't work casting it directly to float
+                out[i] = *((float*)&current_val);
                 break;
         }
     }
