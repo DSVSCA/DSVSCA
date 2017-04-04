@@ -2,7 +2,7 @@
 #include <vector>
 #include <fstream>
 #include <map>
-#include "../input/format.h"
+#include "../encoder/encoder.h"
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
@@ -21,31 +21,28 @@ class SJoin {
 private:
     static char strbuf[512];
    
-    static Format *format;
+    static Encoder *encoder;
 
     static AVFilterGraph *filter_graph;
 
     static int init_filter_graph();
-    static int init_left_abuffers_ctx(); 
-    static int init_right_abuffers_ctx();
-    static int init_left_amix_ctx();
-    static int init_right_amix_ctx();
-    static int init_amerge_ctx();
-    static int init_abuffersink_ctx();
     
-    static AVFilterContext *left_amix_ctx;
-    static AVFilterContext *right_amix_ctx;
-    static AVFilterContext *amerge_ctx;
+    static int init_abuffers_ctx();
+    static int init_amix_ctx();
+    static int init_abuffersink_ctx();
+
+    //static int init_amerge_ctx();
+    
+    static AVFilterContext *amix_ctx;
+    //static AVFilterContext *amerge_ctx;
 public:
     // TODO: Can read from abuffersink as abuffer?
-    SJoin(Format *fmt);
+    SJoin(Encoder *enc);
     ~SJoin();
 
-    static std::vector<AVFilterContext*> left_abuffers_ctx;
-    static std::vector<AVFilterContext*> right_abuffers_ctx;
+    static std::vector<AVFilterContext*> abuffers_ctx;
 
     static AVFilterContext *abuffersink_ctx;
-    //static AVFilterContext *abuffer_ctx; 
     
 };
 

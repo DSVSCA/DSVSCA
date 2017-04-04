@@ -7,7 +7,7 @@
 #include <ctime>
 #include <stdio.h>
 
-int process_filter_graph(Format *fmt, Filter *filter, SJoin *sjoin, std::string sofa_file_name) {
+int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name) {
     FILE *f;
     const char *filename = "FL.aac";
     
@@ -27,6 +27,8 @@ int process_filter_graph(Format *fmt, Filter *filter, SJoin *sjoin, std::string 
     Encoder *encoder = new Encoder(AV_CODEC_ID_AC3,
             fmt->decoder_ctx->bit_rate, AV_SAMPLE_FMT_FLTP);
 
+    SJoin  *sjoin  = new SJoin(encoder);
+    
     f = fopen(filename, "wb");
     if(!f) {
         std::cout << "Error opening file" << std::endl;
@@ -68,9 +70,6 @@ int process_filter_graph(Format *fmt, Filter *filter, SJoin *sjoin, std::string 
                 while(ret >= 0) {
                     // This is where you will work with each processed frame.
                     
-                    AVFrame *l_frame = av_frame_alloc();
-                    AVFrame *r_frame = av_frame_alloc();
-
                     int i;
                     
                     i = 0;
@@ -106,37 +105,44 @@ int process_filter_graph(Format *fmt, Filter *filter, SJoin *sjoin, std::string 
                         float * samples = Virtualizer::get_float_samples(filt_frame->extended_data[0], 
                                 fmt->decoder_ctx->sample_fmt, sample_count);
 
-                        float ** float_results = c2v_[it->first]->process(samples, sample_count);
+                       // float ** float_results = c2v_[it->first]->process(samples, sample_count);
                         
-                        uint8_t * result_l = Virtualizer::get_short_samples(float_results[0], 
+                        uint8_t * result_l = Virtualizer::get_short_samples(samples, 
                                 fmt->decoder_ctx->sample_fmt, sample_count);
                         
-                        l_frame = encoder->fill_new_frame(encoder->codec_ctx, result_l); 
+                        uint8_t * result_r = Virtualizer::get_short_samples(samples, 
+                                fmt->decoder_ctx->sample_fmt, sample_count);
+                   
+                        AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, filt_frame->extended_data[1],
+                                filt_frame->extended_data[0]); 
+                        //memcpy(filt_frame->extended_data[1], filt_frame->extended_data[0],
+                        //        av_get_bytes_per_sample(encoder->codec_ctx->sample_fmt) * sample_count);
                        
-                        std::cout << "index: " <<  it->first << std::endl;
-                        std::cout << l_frame->channel_layout << " " << l_frame->channels << std::endl;
-                        if(av_buffersrc_add_frame_flags(sjoin->left_abuffers_ctx[i], l_frame, 0) < 0) {
-                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
-                         }
-                       /* 
+                        // memcpy(filt_frame->extended_data[0], result_r, 
+                       //         av_get_bytes_per_sample(encoder->codec_ctx->sample_fmt) * sample_count);
+
+                       // if(av_buffersrc_add_frame_flags(sjoin->abuffers_ctx[i], frame, 0) < 0) {
+                       //     av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
+                       //  }
+                       
                        if(it->first == 0) { 
-                        // This will move once virtualizaiton works
+                           //std::cout << l_frame->nb_samples << std::endl;
+                           //std::cout << l_frame->format << std::endl;
+                           // This will move once virtualizaiton works
                         av_init_packet(&packet_out);
                         packet_out.data = NULL;
                         packet_out.size = 0;
                     
-                        
-                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, l_frame, &got_output);
+
+                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
                         if(ret < 0) exit(1);
                         if(got_output) {
                           fwrite(packet_out.data, 1, packet_out.size, f);
                           av_free_packet(&packet_out);
                         }   
                        }
-                       */
-                       uint8_t * result_r = Virtualizer::get_short_samples(float_results[1], 
-                                fmt->decoder_ctx->sample_fmt, sample_count);
-                        
+                    
+                       
                         //AVFrame *r_frame = encoder->fill_new_frame(result_r, 2);
                         
                         /*
@@ -147,14 +153,13 @@ int process_filter_graph(Format *fmt, Filter *filter, SJoin *sjoin, std::string 
                         */
                         // TODO: do something with the result
 
-                        delete[] float_results[0];
-                        delete[] float_results[1];
-                        delete[] float_results;
+                       // delete[] float_results[0];
+                       // delete[] float_results[1];
+                       // delete[] float_results;
                         delete[] samples;
                         
                         //std::cout << "FR";
                         av_frame_unref(filt_frame);
-                        av_frame_unref(l_frame);
                         //av_frame_unref(r_frame);
                         i++;
                     }
@@ -180,13 +185,12 @@ int main(int argc, char *argv[]) {
     clock_t begin = clock();
     Format *format = new Format(videoFile);
     Filter *filter = new Filter(format);
-    SJoin  *sjoin  = new SJoin(format);
     clock_t end = clock();
 
     std::cout << "Filter initialization: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;
 
     begin = clock();
-    process_filter_graph(format, filter, sjoin, sofaFile);
+    process_filter_graph(format, filter, sofaFile);
     end = clock();
 
     std::cout << "Processing Time: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;

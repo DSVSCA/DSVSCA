@@ -16,29 +16,29 @@ extern "C" {
 
 char SJoin::strbuf[512];   // Send filter graph args through this
 
-Format *SJoin::format = NULL;
+Encoder *SJoin::encoder = NULL;
 
 AVFilterGraph *SJoin::filter_graph;  // Holds filter steps
 
-std::vector<AVFilterContext*> SJoin::left_abuffers_ctx(6);
-std::vector<AVFilterContext*> SJoin::right_abuffers_ctx(6);
-AVFilterContext *SJoin::left_amix_ctx = NULL;
-AVFilterContext *SJoin::right_amix_ctx = NULL;
-AVFilterContext *SJoin::amerge_ctx = NULL;
+std::vector<AVFilterContext*> SJoin::abuffers_ctx(6);
+AVFilterContext *SJoin::amix_ctx = NULL;
 AVFilterContext *SJoin::abuffersink_ctx = NULL;
 
-SJoin::SJoin(Format *fmt) {
+SJoin::SJoin(Encoder *enc) {
     std::cout << "Begin joining streams" << std::endl;
     
-    format = fmt;
+    encoder = enc;
     
     // Fix the format context's channel layout to mirror the new channels
     //format->decoder_ctx->channel_layout = 3;
     //format->decoder_ctx->channels = 2; 
+    std::cout << "Encoder information:" << std::endl;
+    std::cout << "Channel Layout: " << encoder->codec_ctx->channel_layout << " Channels: " << 
+        encoder->codec_ctx->channels << std::endl;
 
-    avcodec_register_all();
-    av_register_all();
-    avfilter_register_all();
+    //avcodec_register_all();
+    //av_register_all();
+    //avfilter_register_all();
     std::cout << "Initialize filter graph" << std::endl;    
     init_filter_graph();
 }
@@ -51,81 +51,31 @@ int SJoin::init_filter_graph() {
         av_log(NULL, AV_LOG_ERROR, "Filter graph: unable to create filter graph: out of memory!\n");
     }
 
-    int error = init_left_abuffers_ctx();
 
-    if(error < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Error initializing left abuffers\n");
-    }
-
-    error = init_right_abuffers_ctx();
-
-    if(error < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Error initializing right abuffers\n");
-    }
-
-    error = init_left_amix_ctx();
-
-    if(error < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Error initializing left amix context\n");
-    }
-
-    error = init_right_amix_ctx();
-
-    if(error < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Error initializing right amix context\n");
-    }
-
-    error = init_amerge_ctx();
-
-    if(error < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Error initializing channelmap context\n");
-    }
-
+    int error = init_abuffers_ctx();
+    if(error < 0) av_log(NULL, AV_LOG_ERROR, "Error init abuffers\n");
+    error = init_amix_ctx();
+    if(error < 0) av_log(NULL, AV_LOG_ERROR, "Error init amix\n");
     error = init_abuffersink_ctx();
+    if(error < 0) av_log(NULL, AV_LOG_ERROR, "Error init abuffersink\n");
 
-    if(error < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Error initializing abuffersink context\n");
-    }
-
+    
     std::cout << " * Linking Filters" << std::endl;
 
-    std::cout << "      - Link left abuffers to left amix" << std::endl;
+    std::cout << "  - Link abuffers to amix" << std::endl;
     for(int i = 0; i < 6; i++) {
-        error = avfilter_link(left_abuffers_ctx[i], 0, left_amix_ctx, i);
-        if(error < 0) {
-            av_log(NULL, AV_LOG_ERROR, "error linking left abuffer ctx to left amix ctx %d\n", i);
-        }
+        error = avfilter_link(abuffers_ctx[i], 0, amix_ctx, i);
+        if(error < 0)
+            av_log(NULL, AV_LOG_ERROR, "Error linking abuffer_ctx[%d] to amix_ctx\n", i);
     }
     
-    std::cout << "      - Link right abuffers to right amix" << std::endl;;
-    for(int j = 0; j < 6; j++) {
-        error = avfilter_link(right_abuffers_ctx[j], 0, right_amix_ctx, j);
-        if(error < 0) {
-            av_log(NULL, AV_LOG_ERROR, "error linking right abuffer ctx to right amix ctx %d\n", j);
-        }
-    }
+    std::cout << "      - Link amix to abuffersink" << std::endl;
    
-    std::cout << "      - Link left amix to amerge" << std::endl;
-
-    error = avfilter_link(left_amix_ctx, 0, amerge_ctx, 0);
-
-    if(error < 0)
-        av_log(NULL, AV_LOG_ERROR, "Error linking left_amix_ctx to amerge_ctx\n");
-
-    std::cout << "      - Link right amix to amerge" << std::endl;
-    
-    error = avfilter_link(right_amix_ctx, 0, amerge_ctx, 1);
-
-    if(error < 0)
-        av_log(NULL, AV_LOG_ERROR, "Error linking right_amix_ctx to amerge_ctx\n");
-
-    std::cout << "      - Link amerge to abuffersink" << std::endl;
-   
-    error = avfilter_link(amerge_ctx, 0, abuffersink_ctx, 0);
-
+    error = avfilter_link(amix_ctx, 0, abuffersink_ctx, 0);
     if(error < 0) 
-        av_log(NULL, AV_LOG_ERROR, "Error linking amerge_ctx to abuffersink_ctx\n");
+        av_log(NULL, AV_LOG_ERROR, "Error linking amix_ctx to abuffersink_ctx\n");
 
+    std::cout << "Configuring" << std::endl;
     error = avfilter_graph_config(filter_graph, NULL);
     if(error < 0) {
         av_log(NULL, AV_LOG_ERROR, "error configuring filter graph\n");
@@ -136,6 +86,52 @@ int SJoin::init_filter_graph() {
 
     return error;
 }
+
+int SJoin::init_abuffers_ctx() {
+    std::cout << " * Initializing input buffers" << std::endl;
+
+    AVRational time_base = encoder->codec_ctx->time_base;
+   
+    std::cout << "  Here is some more info about the left channel buffers: " << std::endl;
+    std::cout << "      - Layout: " << encoder->codec_ctx->channel_layout << std::endl;
+    std::cout << "      - #channels: " << encoder->codec_ctx->channels << std::endl;
+    
+    snprintf(strbuf, sizeof(strbuf),
+            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
+            time_base.num, time_base.den, encoder->codec_ctx->sample_rate,
+            av_get_sample_fmt_name(encoder->codec_ctx->sample_fmt),
+            encoder->codec_ctx->channel_layout);
+
+    std::cout << strbuf << std::endl;
+
+    int error;
+
+    for(int i = 0; i < 6; i++) {
+        AVFilter *abuffer = avfilter_get_by_name("abuffer");
+        avfilter_graph_create_filter(&abuffers_ctx[i], abuffer,
+                NULL, strbuf, NULL, filter_graph);
+        if(error < 0) {
+            av_log(NULL, AV_LOG_ERROR, "error initializing abuffer fitler %d\n", i);
+        }
+    }
+
+}
+
+int SJoin::init_amix_ctx() {
+    std::cout << "  * Initializing amix context" << std::endl;
+    AVFilter *amix = avfilter_get_by_name("amix");
+    
+    snprintf(strbuf, sizeof(strbuf), "inputs=6:duration=first");
+    std::cout << strbuf << std::endl;
+
+    int error = avfilter_graph_create_filter(&amix_ctx, amix, NULL, strbuf, NULL, filter_graph);
+
+    if(error < 0) 
+        av_log(NULL, AV_LOG_ERROR, "error initializing left amix filter\n");
+
+    return error;
+}
+/*
 
 int SJoin::init_left_abuffers_ctx() {
     std::cout << "  * Initializing left input buffers" << std::endl;
@@ -152,7 +148,6 @@ int SJoin::init_left_abuffers_ctx() {
             av_get_sample_fmt_name(format->decoder_ctx->sample_fmt),
             format->decoder_ctx->channel_layout);  
 
-    
     std::cout << strbuf << std::endl;
     
     int error;
@@ -250,7 +245,7 @@ int SJoin::init_amerge_ctx() {
 
     return error;
 }
-
+*/
 int SJoin::init_abuffersink_ctx() {
     std::cout << "  * Initializing output buffer" << std::endl;
     AVFilter *abuffersink = avfilter_get_by_name("abuffersink");
