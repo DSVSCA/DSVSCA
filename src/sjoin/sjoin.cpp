@@ -33,8 +33,8 @@ SJoin::SJoin(Format *fmt) {
     format = fmt;
     
     // Fix the format context's channel layout to mirror the new channels
-    format->decoder_ctx->channel_layout = 3;
-    format->decoder_ctx->channels = 2; 
+    //format->decoder_ctx->channel_layout = 3;
+    //format->decoder_ctx->channels = 2; 
 
     avcodec_register_all();
     av_register_all();
@@ -139,19 +139,18 @@ int SJoin::init_filter_graph() {
 
 int SJoin::init_left_abuffers_ctx() {
     std::cout << "  * Initializing left input buffers" << std::endl;
-    AVFilter *abuffer = avfilter_get_by_name("abuffer");
     AVRational time_base = format->audio_stream->time_base;
     
     std::cout << "  Here is some more info about the left channel buffers: " << std::endl;
-    std::cout << "      - Layout: " << 1 << std::endl;
-    std::cout << "      - #channels: " << 1 << std::endl;
+    std::cout << "      - Layout: " << format->decoder_ctx->channel_layout << std::endl;
+    std::cout << "      - #channels: " << format->decoder_ctx->channels << std::endl;
     
     // Create the abuffer filter argument
     snprintf(strbuf, sizeof(strbuf), 
-            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%d",
+            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
             time_base.num, time_base.den, format->decoder_ctx->sample_rate,
             av_get_sample_fmt_name(format->decoder_ctx->sample_fmt),
-            1);  
+            format->decoder_ctx->channel_layout);  
 
     
     std::cout << strbuf << std::endl;
@@ -159,6 +158,7 @@ int SJoin::init_left_abuffers_ctx() {
     int error;
     
     for(int i = 0; i < 6; i++) {
+        AVFilter *abuffer = avfilter_get_by_name("abuffer");
         avfilter_graph_create_filter(&left_abuffers_ctx[i], abuffer,
                 NULL, strbuf, NULL, filter_graph);
         
@@ -178,7 +178,7 @@ int SJoin::init_right_abuffers_ctx() {
     
     std::cout << "  Here is some more info about the right channel buffers: " << std::endl;
     std::cout << "      - Layout: " << 2 << std::endl;
-    std::cout << "      - #channels: " << 2 << std::endl;
+    std::cout << "      - #channels: " << 1 << std::endl;
     
     // Create the abuffer filter argument
     snprintf(strbuf, sizeof(strbuf), 

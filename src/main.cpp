@@ -7,7 +7,7 @@
 #include <ctime>
 #include <stdio.h>
 
-int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name) {
+int process_filter_graph(Format *fmt, Filter *filter, SJoin *sjoin, std::string sofa_file_name) {
     FILE *f;
     const char *filename = "FL.aac";
     
@@ -20,6 +20,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
     std::unordered_map<Filter::Channel, Virtualizer*, std::hash<int>> c2v_;
     complete_sofa sofa_;
 
+    
     AVPacket packet_out;
     int got_output;
 
@@ -66,22 +67,19 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                 
                 while(ret >= 0) {
                     // This is where you will work with each processed frame.
+                    
+                    AVFrame *l_frame = av_frame_alloc();
+                    AVFrame *r_frame = av_frame_alloc();
 
-                    for (auto it = filter->abuffersink_ctx_map.begin(); it != filter->abuffersink_ctx_map.end(); it++) {
+                    int i;
+                    
+                    i = 0;
+                    for (auto it = filter->abuffersink_ctx_map.begin(); 
+                            it != filter->abuffersink_ctx_map.end(); it++) {
+                   
                         ret = av_buffersink_get_frame(it->second, filt_frame);
                         if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                      
-                        // This will move once virtualizaiton works
-                        av_init_packet(&packet_out);
-                        packet_out.data = NULL;
-                        packet_out.size = 0;
-                    
-                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, filt_frame, &got_output);
-                        if(ret < 0) exit(1);
-                        if(got_output) {
-                          fwrite(packet_out.data, 1, packet_out.size, f);
-                          av_free_packet(&packet_out);
-                        }   
+                        
 
                         int sample_count = filt_frame->nb_samples;
                         int sample_rate = filt_frame->sample_rate;
@@ -105,13 +103,48 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                             }
                         }
 
-                        float * samples = Virtualizer::get_float_samples(filt_frame->extended_data[0], fmt->decoder_ctx->sample_fmt, sample_count);
+                        float * samples = Virtualizer::get_float_samples(filt_frame->extended_data[0], 
+                                fmt->decoder_ctx->sample_fmt, sample_count);
 
                         float ** float_results = c2v_[it->first]->process(samples, sample_count);
-
-                        uint8_t * result_l = Virtualizer::get_short_samples(float_results[0], fmt->decoder_ctx->sample_fmt, sample_count);
-                        uint8_t * result_r = Virtualizer::get_short_samples(float_results[1], fmt->decoder_ctx->sample_fmt, sample_count);
-
+                        
+                        uint8_t * result_l = Virtualizer::get_short_samples(float_results[0], 
+                                fmt->decoder_ctx->sample_fmt, sample_count);
+                        
+                        l_frame = encoder->fill_new_frame(encoder->codec_ctx, result_l); 
+                       
+                        std::cout << "index: " <<  it->first << std::endl;
+                        std::cout << l_frame->channel_layout << " " << l_frame->channels << std::endl;
+                        if(av_buffersrc_add_frame_flags(sjoin->left_abuffers_ctx[i], l_frame, 0) < 0) {
+                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
+                         }
+                       /* 
+                       if(it->first == 0) { 
+                        // This will move once virtualizaiton works
+                        av_init_packet(&packet_out);
+                        packet_out.data = NULL;
+                        packet_out.size = 0;
+                    
+                        
+                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, l_frame, &got_output);
+                        if(ret < 0) exit(1);
+                        if(got_output) {
+                          fwrite(packet_out.data, 1, packet_out.size, f);
+                          av_free_packet(&packet_out);
+                        }   
+                       }
+                       */
+                       uint8_t * result_r = Virtualizer::get_short_samples(float_results[1], 
+                                fmt->decoder_ctx->sample_fmt, sample_count);
+                        
+                        //AVFrame *r_frame = encoder->fill_new_frame(result_r, 2);
+                        
+                        /*
+                        if(av_buffersrc_add_frame_flags(sjoin->right_abuffers_ctx[i], r_frame, 0) < 0) {
+                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
+                            break;
+                        }
+                        */
                         // TODO: do something with the result
 
                         delete[] float_results[0];
@@ -121,8 +154,10 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         
                         //std::cout << "FR";
                         av_frame_unref(filt_frame);
+                        av_frame_unref(l_frame);
+                        //av_frame_unref(r_frame);
+                        i++;
                     }
-                    
                     av_frame_unref(filt_frame);
                 }
             }
@@ -143,7 +178,7 @@ int main(int argc, char *argv[]) {
     std::string sofaFile = std::string(argv[2]);
 
     clock_t begin = clock();
-    Format *format = new Format("sw.mp4");
+    Format *format = new Format(videoFile);
     Filter *filter = new Filter(format);
     SJoin  *sjoin  = new SJoin(format);
     clock_t end = clock();
@@ -151,7 +186,7 @@ int main(int argc, char *argv[]) {
     std::cout << "Filter initialization: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;
 
     begin = clock();
-    process_filter_graph(format, filter, sofaFile);
+    process_filter_graph(format, filter, sjoin, sofaFile);
     end = clock();
 
     std::cout << "Processing Time: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;
