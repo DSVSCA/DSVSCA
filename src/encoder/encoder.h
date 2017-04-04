@@ -23,6 +23,8 @@ public:
     Encoder(enum AVCodecID encoder_id, int bit_rate, enum AVSampleFormat sample_fmt);
     ~Encoder();
 
+    static AVFrame *fill_new_frame(AVCodecContext *codec_ctx, uint8_t *sampss);
+    //AVFrame *fill_new_frame(uint8_t *samples, int channel_layout);
     AVCodecContext *codec_ctx = NULL;
 };
 
