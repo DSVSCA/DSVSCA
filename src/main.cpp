@@ -2,8 +2,8 @@
 #include "input/filter.h"
 #include "input/format.h"
 #include "encoder/encoder.h"
-//#include "sjoin/sjoin.h"
-#include "sjoin/testjoin.h"
+#include "sjoin/sjoin.h"
+//#include "sjoin/testjoin.h"
 #include "virtualizer/virtualizer.h"
 #include <ctime>
 #include <stdio.h>
@@ -32,20 +32,21 @@ typedef struct {
      char    *channel_layout_str;
  
      int eof;
- } BufferSourceContext;
-
+} BufferSourceContext;
 
 int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name) {
-    FILE * fl;
-    FILE * fc;
-    FILE * fr;
-    FILE * bl;
-    FILE * br;
-    const char * fl_filename = "FL.aac";
-    const char * fc_filename = "FC.aac";
-    const char * fr_filename = "FR.aac";
-    const char * bl_filename = "BL.aac";
-    const char * br_filename = "BR.aac";
+    FILE *fl;
+    FILE *fr;
+    FILE *fc;
+    FILE *lfe;
+    FILE *bl;
+    FILE *br;
+    const char *fl_filename = "FL.aac";
+    const char *fr_filename = "FR.aac";
+    const char *fc_filename = "FC.aac";
+    const char *lfe_filename = "LFE.aac";
+    const char *bl_filename = "BL.aac";
+    const char *br_filename= "BR.aac";
 
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
@@ -63,15 +64,16 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
     Encoder *encoder = new Encoder(AV_CODEC_ID_AC3,
             fmt->decoder_ctx->bit_rate, AV_SAMPLE_FMT_FLTP);
 
-    //SJoin  *sjoin  = new SJoin(encoder);
-    TestJoin *testjoin = new TestJoin(encoder);
+    SJoin  *sjoin  = new SJoin(encoder);
+    //TestJoin *testjoin = new TestJoin(encoder);
 
     fl = fopen(fl_filename, "wb");
-    fc = fopen(fc_filename, "wb");
     fr = fopen(fr_filename, "wb");
+    fc = fopen(fc_filename, "wb");
+    lfe = fopen(lfe_filename, "wb");
     bl = fopen(bl_filename, "wb");
     br = fopen(br_filename, "wb");
-    if(!fl || !fc || !fr || !bl || !br) {
+    if(!fl || !fr || !fc || !lfe || !bl || !br) {
         std::cout << "Error opening file" << std::endl;
     }
 
@@ -108,15 +110,14 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                     break;
                 }
 
+                int i ;
                 while(ret >= 0) {
                     // This is where you will work with each processed frame.
 
-                    int i;
-
                     i = 0;
+
                     for (auto it = filter->abuffersink_ctx_map.begin();
                             it != filter->abuffersink_ctx_map.end(); it++) {
-
                         ret = av_buffersink_get_frame(it->second, filt_frame);
                         if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
 
@@ -132,7 +133,8 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
 
                             if (sofa_.hrtf == NULL) {
                                 //TODO: delete these after execution
-                                Virtualizer * virt = new Virtualizer(sofa_file_name.c_str(), sample_rate, x, y, z);
+                                Virtualizer * virt = new Virtualizer(sofa_file_name.c_str(), 
+                                        sample_rate, x, y, z);
                                 c2v_.insert(std::make_pair(it->first, virt));
                                 sofa_ = virt->get_hrtf();
                             }
@@ -166,30 +168,36 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         virt_frame->sample_rate = 48000;
                         virt_frame->channel_layout = 3;
 
+
                        // This will move once virtualizaiton works
                         av_init_packet(&packet_out);
                         packet_out.data = NULL;
                         packet_out.size = 0;
 
-
                         ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
                         if(ret < 0) exit(1);
+                        
+                        if(it->first == Filter::FL && got_output) 
+				fwrite(packet_out.data, 1, packet_out.size, fl);
+                        else if(it->first == Filter::FR && got_output) 
+				fwrite(packet_out.data, 1, packet_out.size, fr);
+                        else if(it->first == Filter::FC && got_output) 
+				fwrite(packet_out.data, 1, packet_out.size, fc);
+                        else if(it->first == Filter::LFE && got_output)
+                                fwrite(packet_out.data, 1, packet_out.size, lfe);
+                        else if(it->first == Filter::BL && got_output) 
+				fwrite(packet_out.data, 1, packet_out.size, bl);
+                        else if(it->first == Filter::BR && got_output) 
+				fwrite(packet_out.data, 1, packet_out.size, br);
 
-                        if(it->first == Filter::FL && got_output) fwrite(packet_out.data, 1, packet_out.size, fl);
-                        else if(it->first == Filter::FC && got_output) fwrite(packet_out.data, 1, packet_out.size, fc);
-                        else if(it->first == Filter::FR && got_output) fwrite(packet_out.data, 1, packet_out.size, fr);
-                        else if(it->first == Filter::BL && got_output) fwrite(packet_out.data, 1, packet_out.size, bl);
-                        else if(it->first == Filter::BR && got_output) fwrite(packet_out.data, 1, packet_out.size, br);
+                        av_free_packet(&packet_out); 
 
-                        av_free_packet(&packet_out);
-
-                        if(av_buffersrc_add_frame_flags(testjoin->abuffer_ctx, virt_frame, 0) < 0)
-                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filtergraph\n");
-                                               AVFrame *test_virt_frame = av_frame_alloc();
-                        ret = av_buffersink_get_frame(testjoin->abuffersink_ctx, test_virt_frame);
-                        if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-
-
+                        //if(av_buffersrc_add_frame_flags(sjoin->abuffers_ctx[i], virt_frame, 0) < 0)
+                        //    av_log(NULL, AV_LOG_ERROR, "Error feeding into filtergraph\n");
+                        //                       AVFrame *test_virt_frame = av_frame_alloc();
+                        //ret = av_buffersink_get_frame(sjoin->abuffersink_ctx, test_virt_frame);
+                        //if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+                        
                         /*
                         if(av_buffersrc_add_frame_flags(sjoin->right_abuffers_ctx[i], r_frame, 0) < 0) {
                             av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
@@ -212,15 +220,13 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
             av_free_packet(&packet0);
         }
     }
-
-    //for (auto it = c2v_.begin(); it != c2v_.end(); it++) delete it->second;
-
     fclose(fl);
-    fclose(fc);
     fclose(fr);
-    fclose(bl);
+    fclose(fc);
+    fclose(lfe);
     fclose(br);
-
+    fclose(bl);
+    
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
     delete filter;

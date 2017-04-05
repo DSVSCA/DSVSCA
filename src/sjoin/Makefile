@@ -1,7 +1,7 @@
 DSVSCA:
-	g++ -I../../include/ -c testjoin.cpp -o ../../build/testjoin.o 
+	g++ -I../../include/ -c sjoin.cpp -o ../../build/sjoin.o 
 
 debug:
-	g++ -g -I../../include/ -c testjoin.cpp -o ../../build/testjoin.o
+	g++ -g -I../../include/ -c sjoin.cpp -o ../../build/sjoin.o
 copy-headers:
 	cp *.h ../../include/
