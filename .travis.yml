@@ -3,3 +3,4 @@ compiler: g++
 before_install:
     - sudo apt-get install yasm
 script: make
+
