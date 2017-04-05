@@ -8,19 +8,27 @@
 #include <stdio.h>
 
 int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name) {
-    FILE *f;
-    const char *filename = "FL.aac";
-    
+    FILE *fl;
+    FILE *fr;
+    FILE *fc;
+    FILE *bl;
+    FILE *br;
+    const char * fl_filename = "FL.aac";
+    const char * fr_filename = "FR.aac";
+    const char * fc_filename = "FC.aac";
+    const char * bl_filename = "BL.aac";
+    const char * br_filename = "BR.aac";
+
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
     int got_frame;
 
-  
+
     std::unordered_map<Filter::Channel, Virtualizer*, std::hash<int>> c2v_;
     complete_sofa sofa_;
 
-    
+
     AVPacket packet_out;
     int got_output;
 
@@ -28,12 +36,16 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
             fmt->decoder_ctx->bit_rate, AV_SAMPLE_FMT_FLTP);
 
     SJoin  *sjoin  = new SJoin(encoder);
-    
-    f = fopen(filename, "wb");
-    if(!f) {
+
+    fl = fopen(fl_filename, "wb");
+    fr = fopen(fr_filename, "wb");
+    fc = fopen(fc_filename, "wb");
+    bl = fopen(bl_filename, "wb");
+    br = fopen(br_filename, "wb");
+    if(!fl || !fr || !fc || !bl || !br) {
         std::cout << "Error opening file" << std::endl;
     }
-    
+
     int ret = 0;
 
     /* Read all of the packets */
@@ -66,19 +78,18 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                     av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
                     break;
                 }
-                
+
                 while(ret >= 0) {
                     // This is where you will work with each processed frame.
-                    
-                    int i;
-                    
-                    i = 0;
-                    for (auto it = filter->abuffersink_ctx_map.begin(); 
+
+                    int i = 0;
+
+                    for (auto it = filter->abuffersink_ctx_map.begin();
                             it != filter->abuffersink_ctx_map.end(); it++) {
-                   
+
                         ret = av_buffersink_get_frame(it->second, filt_frame);
                         if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                        
+
 
                         int sample_count = filt_frame->nb_samples;
                         int sample_rate = filt_frame->sample_rate;
@@ -102,62 +113,45 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                             }
                         }
 
-                        float * samples = Virtualizer::get_float_samples(filt_frame->extended_data[0], 
+                        float * samples = Virtualizer::get_float_samples(filt_frame->extended_data[0],
                                 fmt->decoder_ctx->sample_fmt, sample_count);
 
-                       // float ** float_results = c2v_[it->first]->process(samples, sample_count);
-                        
-                        uint8_t * result_l = Virtualizer::get_short_samples(samples, 
-                                fmt->decoder_ctx->sample_fmt, sample_count);
-                        
-                        uint8_t * result_r = Virtualizer::get_short_samples(samples, 
-                                fmt->decoder_ctx->sample_fmt, sample_count);
-                   
-                        AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, filt_frame->extended_data[1],
-                                filt_frame->extended_data[0]); 
-                        //memcpy(filt_frame->extended_data[1], filt_frame->extended_data[0],
-                        //        av_get_bytes_per_sample(encoder->codec_ctx->sample_fmt) * sample_count);
-                       
-                        // memcpy(filt_frame->extended_data[0], result_r, 
-                       //         av_get_bytes_per_sample(encoder->codec_ctx->sample_fmt) * sample_count);
+                        float ** float_results = c2v_[it->first]->process(samples, sample_count);
 
-                       // if(av_buffersrc_add_frame_flags(sjoin->abuffers_ctx[i], frame, 0) < 0) {
-                       //     av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
-                       //  }
-                       
-                       if(it->first == 0) { 
-                           //std::cout << l_frame->nb_samples << std::endl;
-                           //std::cout << l_frame->format << std::endl;
-                           // This will move once virtualizaiton works
+                        uint8_t * result_l = Virtualizer::get_short_samples(float_results[0],
+                                fmt->decoder_ctx->sample_fmt, sample_count);
+
+                        uint8_t * result_r = Virtualizer::get_short_samples(float_results[1],
+                                fmt->decoder_ctx->sample_fmt, sample_count);
+
+                        delete[] float_results[0];
+                        delete[] float_results[1];
+                        delete[] float_results;
+                        delete[] samples;
+
+                        AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, result_r,
+                                result_l);
+
+                        // apparently, new_frame just points to our data, it doesn't make a copy
+                        //free(result_l);
+                        //free(result_r);
+
+                        // This will move once virtualizaiton works
                         av_init_packet(&packet_out);
                         packet_out.data = NULL;
                         packet_out.size = 0;
-                    
 
                         ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
                         if(ret < 0) exit(1);
-                        if(got_output) {
-                          fwrite(packet_out.data, 1, packet_out.size, f);
-                          av_free_packet(&packet_out);
-                        }   
-                       }
-                    
-                       
-                        //AVFrame *r_frame = encoder->fill_new_frame(result_r, 2);
-                        
-                        /*
-                        if(av_buffersrc_add_frame_flags(sjoin->right_abuffers_ctx[i], r_frame, 0) < 0) {
-                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
-                            break;
-                        }
-                        */
-                        // TODO: do something with the result
 
-                       // delete[] float_results[0];
-                       // delete[] float_results[1];
-                       // delete[] float_results;
-                        delete[] samples;
-                        
+                        if(it->first == Filter::FL && got_output) fwrite(packet_out.data, 1, packet_out.size, fl);
+                        else if(it->first == Filter::FR && got_output) fwrite(packet_out.data, 1, packet_out.size, fr);
+                        else if(it->first == Filter::FC && got_output) fwrite(packet_out.data, 1, packet_out.size, fc);
+                        else if(it->first == Filter::BL && got_output) fwrite(packet_out.data, 1, packet_out.size, bl);
+                        else if(it->first == Filter::BR && got_output) fwrite(packet_out.data, 1, packet_out.size, br);
+
+                        av_free_packet(&packet_out);
+
                         //std::cout << "FR";
                         av_frame_unref(filt_frame);
                         //av_frame_unref(r_frame);
@@ -171,7 +165,14 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
             av_free_packet(&packet0);
         }
     }
-    fclose(f);
+
+    //for (auto it = c2v_.begin(); it != c2v_.end(); it++) delete it->second;
+
+    fclose(fl);
+    fclose(fc);
+    fclose(fr);
+    fclose(bl);
+    fclose(br);
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
     delete filter;
