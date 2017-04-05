@@ -24,7 +24,7 @@ public:
 
     int buffer_size;
     AVFrame *new_frame(AVCodecContext *codec_ctx, uint8_t *extended_data_l, uint8_t *extended_data_r);
-    AVCodecContext *codec_ctx = NULL;
+    static AVCodecContext *codec_ctx;
 };
 
 
