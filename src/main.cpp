@@ -36,8 +36,16 @@ typedef struct {
 
 
 int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name) {
-    FILE *f;
-    const char *filename = "FL.aac";
+    FILE * fl;
+    FILE * fc;
+    FILE * fr;
+    FILE * bl;
+    FILE * br;
+    const char * fl_filename = "FL.aac";
+    const char * fc_filename = "FC.aac";
+    const char * fr_filename = "FR.aac";
+    const char * bl_filename = "BL.aac";
+    const char * br_filename = "BR.aac";
 
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
@@ -58,8 +66,12 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
     //SJoin  *sjoin  = new SJoin(encoder);
     TestJoin *testjoin = new TestJoin(encoder);
 
-    f = fopen(filename, "wb");
-    if(!f) {
+    fl = fopen(fl_filename, "wb");
+    fc = fopen(fc_filename, "wb");
+    fr = fopen(fr_filename, "wb");
+    bl = fopen(bl_filename, "wb");
+    br = fopen(br_filename, "wb");
+    if(!fl || !fc || !fr || !bl || !br) {
         std::cout << "Error opening file" << std::endl;
     }
 
@@ -154,22 +166,22 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         virt_frame->sample_rate = 48000;
                         virt_frame->channel_layout = 3;
 
-                        if(it->first == 0) {
-                           //std::cout << l_frame->nb_samples << std::endl;
-                           //std::cout << l_frame->format << std::endl;
-                           // This will move once virtualizaiton works
-                            av_init_packet(&packet_out);
-                            packet_out.data = NULL;
-                            packet_out.size = 0;
+                       // This will move once virtualizaiton works
+                        av_init_packet(&packet_out);
+                        packet_out.data = NULL;
+                        packet_out.size = 0;
 
 
-                            ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
-                            if(ret < 0) exit(1);
-                            if(got_output) {
-                                fwrite(packet_out.data, 1, packet_out.size, f);
-                                av_free_packet(&packet_out);
-                            }
-                        }
+                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
+                        if(ret < 0) exit(1);
+
+                        if(it->first == Filter::FL && got_output) fwrite(packet_out.data, 1, packet_out.size, fl);
+                        else if(it->first == Filter::FC && got_output) fwrite(packet_out.data, 1, packet_out.size, fc);
+                        else if(it->first == Filter::FR && got_output) fwrite(packet_out.data, 1, packet_out.size, fr);
+                        else if(it->first == Filter::BL && got_output) fwrite(packet_out.data, 1, packet_out.size, bl);
+                        else if(it->first == Filter::BR && got_output) fwrite(packet_out.data, 1, packet_out.size, br);
+
+                        av_free_packet(&packet_out);
 
                         if(av_buffersrc_add_frame_flags(testjoin->abuffer_ctx, virt_frame, 0) < 0)
                             av_log(NULL, AV_LOG_ERROR, "Error feeding into filtergraph\n");
@@ -200,7 +212,15 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
             av_free_packet(&packet0);
         }
     }
-    fclose(f);
+
+    //for (auto it = c2v_.begin(); it != c2v_.end(); it++) delete it->second;
+
+    fclose(fl);
+    fclose(fc);
+    fclose(fr);
+    fclose(bl);
+    fclose(br);
+
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
     delete filter;
