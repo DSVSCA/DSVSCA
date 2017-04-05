@@ -2,10 +2,37 @@
 #include "input/filter.h"
 #include "input/format.h"
 #include "encoder/encoder.h"
-#include "sjoin/sjoin.h"
+//#include "sjoin/sjoin.h"
+#include "sjoin/testjoin.h"
 #include "virtualizer/virtualizer.h"
 #include <ctime>
 #include <stdio.h>
+#include <libavutil/fifo.h>
+
+typedef struct {
+     const AVClass    *classs;
+     AVFifoBuffer     *fifo;
+     AVRational        time_base;     ///< time_base to set in the output link
+     AVRational        frame_rate;    ///< frame_rate to set in the output link
+     unsigned          nb_failed_requests;
+     unsigned          warning_limit;
+ 
+     /* video only */
+     int               w, h;
+     enum AVPixelFormat  pix_fmt;
+     AVRational        pixel_aspect;
+     char              *sws_param;
+ 
+     /* audio only */
+     int sample_rate;
+     enum AVSampleFormat sample_fmt;
+     char               *sample_fmt_str;
+     int channels;
+     uint64_t channel_layout;
+     char    *channel_layout_str;
+ 
+     int eof;
+ } BufferSourceContext;
 
 int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name) {
     FILE *f;
@@ -27,13 +54,17 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
     Encoder *encoder = new Encoder(AV_CODEC_ID_AC3,
             fmt->decoder_ctx->bit_rate, AV_SAMPLE_FMT_FLTP);
 
-    SJoin  *sjoin  = new SJoin(encoder);
-    
+    encoder->codec_ctx->channel_layout = 2;
+
+    TestJoin *testjoin  = new TestJoin(encoder);
+   
+    BufferSourceContext *s = (BufferSourceContext*)testjoin->abuffer_ctx->priv;
+
     f = fopen(filename, "wb");
     if(!f) {
         std::cout << "Error opening file" << std::endl;
     }
-    
+   
     int ret = 0;
 
     /* Read all of the packets */
@@ -114,18 +145,35 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                                 fmt->decoder_ctx->sample_fmt, sample_count);
                    
                         AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, filt_frame->extended_data[1],
-                                filt_frame->extended_data[0]); 
+                                filt_frame->extended_data[0]);
+
                         //memcpy(filt_frame->extended_data[1], filt_frame->extended_data[0],
                         //        av_get_bytes_per_sample(encoder->codec_ctx->sample_fmt) * sample_count);
                        
                         // memcpy(filt_frame->extended_data[0], result_r, 
                        //         av_get_bytes_per_sample(encoder->codec_ctx->sample_fmt) * sample_count);
-
-                       // if(av_buffersrc_add_frame_flags(sjoin->abuffers_ctx[i], frame, 0) < 0) {
-                       //     av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
-                       //  }
+                        
+                        virt_frame->format = AV_SAMPLE_FMT_FLTP;
+                        virt_frame->sample_rate = 48000;
+                        virt_frame->channel_layout = 3;
+                        //s->channel_layout = (uint64_t)3;
+                        //s->channels = 2;
+                        memcpy((BufferSourceContext*)testjoin->abuffer_ctx->priv, s, sizeof(BufferSourceContext));
+                        
+                        BufferSourceContext *d = (BufferSourceContext*)testjoin->abuffer_ctx->priv;
+                        int nb_channels = av_frame_get_channels(virt_frame);
+                        int layout = av_get_channel_layout_nb_channels(virt_frame->channel_layout);
+                        if(av_buffersrc_add_frame_flags(testjoin->abuffer_ctx, virt_frame, 0) < 0) {
+                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
+                        }
+                        
                        
-                       if(it->first == 0) { 
+                        AVFrame *test_virt_frame = av_frame_alloc();
+                        
+                        ret = av_buffersink_get_frame(testjoin->abuffersink_ctx, test_virt_frame);
+                        if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
+    
+                        if(it->first == 0) { 
                            //std::cout << l_frame->nb_samples << std::endl;
                            //std::cout << l_frame->format << std::endl;
                            // This will move once virtualizaiton works
@@ -134,7 +182,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         packet_out.size = 0;
                     
 
-                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
+                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, test_virt_frame, &got_output);
                         if(ret < 0) exit(1);
                         if(got_output) {
                           fwrite(packet_out.data, 1, packet_out.size, f);
