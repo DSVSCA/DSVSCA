@@ -2,10 +2,38 @@
 #include "input/filter.h"
 #include "input/format.h"
 #include "encoder/encoder.h"
-#include "sjoin/sjoin.h"
+//#include "sjoin/sjoin.h"
+#include "sjoin/testjoin.h"
 #include "virtualizer/virtualizer.h"
 #include <ctime>
 #include <stdio.h>
+#include <libavutil/fifo.h>
+
+typedef struct {
+     const AVClass    *classs;
+     AVFifoBuffer     *fifo;
+     AVRational        time_base;     ///< time_base to set in the output link
+     AVRational        frame_rate;    ///< frame_rate to set in the output link
+     unsigned          nb_failed_requests;
+     unsigned          warning_limit;
+ 
+     /* video only */
+     int               w, h;
+     enum AVPixelFormat  pix_fmt;
+     AVRational        pixel_aspect;
+     char              *sws_param;
+ 
+     /* audio only */
+     int sample_rate;
+     enum AVSampleFormat sample_fmt;
+     char               *sample_fmt_str;
+     int channels;
+     uint64_t channel_layout;
+     char    *channel_layout_str;
+ 
+     int eof;
+ } BufferSourceContext;
+
 
 int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name) {
     FILE *f;
@@ -27,7 +55,8 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
     Encoder *encoder = new Encoder(AV_CODEC_ID_AC3,
             fmt->decoder_ctx->bit_rate, AV_SAMPLE_FMT_FLTP);
 
-    SJoin  *sjoin  = new SJoin(encoder);
+    //SJoin  *sjoin  = new SJoin(encoder);
+    TestJoin *testjoin = new TestJoin(encoder);
 
     f = fopen(filename, "wb");
     if(!f) {
@@ -120,26 +149,34 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
 
                         AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, result_r,
                                 result_l);
+                        
+                        virt_frame->format = AV_SAMPLE_FMT_FLTP;
+                        virt_frame->sample_rate = 48000;
+                        virt_frame->channel_layout = 3;
 
-                       if(it->first == 0) {
+                        if(it->first == 0) {
                            //std::cout << l_frame->nb_samples << std::endl;
                            //std::cout << l_frame->format << std::endl;
                            // This will move once virtualizaiton works
-                        av_init_packet(&packet_out);
-                        packet_out.data = NULL;
-                        packet_out.size = 0;
+                            av_init_packet(&packet_out);
+                            packet_out.data = NULL;
+                            packet_out.size = 0;
 
 
-                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
-                        if(ret < 0) exit(1);
-                        if(got_output) {
-                          fwrite(packet_out.data, 1, packet_out.size, f);
-                          av_free_packet(&packet_out);
+                            ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
+                            if(ret < 0) exit(1);
+                            if(got_output) {
+                                fwrite(packet_out.data, 1, packet_out.size, f);
+                                av_free_packet(&packet_out);
+                            }
                         }
-                       }
 
+                        if(av_buffersrc_add_frame_flags(testjoin->abuffer_ctx, virt_frame, 0) < 0)
+                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filtergraph\n");
+                                               AVFrame *test_virt_frame = av_frame_alloc();
+                        ret = av_buffersink_get_frame(testjoin->abuffersink_ctx, test_virt_frame);
+                        if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
 
-                        //AVFrame *r_frame = encoder->fill_new_frame(result_r, 2);
 
                         /*
                         if(av_buffersrc_add_frame_flags(sjoin->right_abuffers_ctx[i], r_frame, 0) < 0) {
@@ -150,6 +187,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         // TODO: do something with the result
 
                         //std::cout << "FR";
+                        av_frame_unref(virt_frame);
                         av_frame_unref(filt_frame);
                         //av_frame_unref(r_frame);
                         i++;
