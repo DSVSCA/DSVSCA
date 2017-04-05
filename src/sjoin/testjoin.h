@@ -13,10 +13,10 @@ extern "C" {
 #include <libavutil/channel_layout.h>
 }
 
-#ifndef SJOIN_H
-#define SJOIN_H
+#ifndef TESTJOIN_H
+#define TESTJOIN_H
 
-class SJoin {
+class TestJoin {
 
 private:
     static char strbuf[512];
@@ -27,20 +27,16 @@ private:
 
     static int init_filter_graph();
     
-    static int init_abuffers_ctx();
-    static int init_amix_ctx();
+    static int init_abuffer_ctx();
     static int init_abuffersink_ctx();
 
-    //static int init_amerge_ctx();
-    
-    static AVFilterContext *amix_ctx;
     //static AVFilterContext *amerge_ctx;
 public:
     // TODO: Can read from abuffersink as abuffer?
-    SJoin(Encoder *enc);
-    ~SJoin();
+    TestJoin(Encoder *enc);
+    ~TestJoin();
 
-    static std::vector<AVFilterContext*> abuffers_ctx;
+    static AVFilterContext *abuffer_ctx;
 
     static AVFilterContext *abuffersink_ctx;
     
