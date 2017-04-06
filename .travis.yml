@@ -1,6 +1,6 @@
 language: cpp
-compiler: gcc
+compiler: g++
 before_install:
-  - sudo apt-get update
-  - sudo apt-get install ffmpeg libopenal-dev libalut-dev libavformat-dev libavcodec-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev
+    - sudo apt-get install yasm
 script: make
+

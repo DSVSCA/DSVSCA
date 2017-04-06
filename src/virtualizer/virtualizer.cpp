@@ -3,10 +3,12 @@
 // The x-axis (1 0 0) is the listening direction. The y-axis (0 1 0) is the left side of the listener. The z-axis (0 0 1) is upwards.
 Virtualizer::Virtualizer(const char * sofa_file_name, int sample_rate, float x, float y, float z, int block_size) {
     this->open_sofa(sofa_file_name, sample_rate);
+    this->created_hrtf = true;
     this->init(sample_rate, x, y, z, block_size);
 }
 
 Virtualizer::Virtualizer(complete_sofa sofa_, int sample_rate, float x, float y, float z, int block_size) {
+    this->created_hrtf = false;
     this->hrtf = sofa_.hrtf;
     this->filter_length = sofa_.filter_length;
 
@@ -14,7 +16,7 @@ Virtualizer::Virtualizer(complete_sofa sofa_, int sample_rate, float x, float y,
 }
 
 Virtualizer::~Virtualizer() {
-    this->close_sofa();
+    if (created_hrtf) this->close_sofa();
     delete[] this->right_ir;
     delete[] this->left_ir;
     delete[] this->overflow_audio;
@@ -114,6 +116,26 @@ complete_sofa Virtualizer::get_hrtf() {
     return sofa;
 }
 
+template<typename T>
+void Virtualizer::store_value(uint8_t * output, int64_t value, int64_t max_val, AVSampleFormat format, int index) {
+    switch(format) {
+        case AV_SAMPLE_FMT_U8:
+        case AV_SAMPLE_FMT_S16:
+        case AV_SAMPLE_FMT_S32:
+        case AV_SAMPLE_FMT_U8P:
+        case AV_SAMPLE_FMT_S16P:
+        case AV_SAMPLE_FMT_S32P:
+            ((T*)output)[index] = (value * max_val);
+            break;
+        case AV_SAMPLE_FMT_FLT:
+        case AV_SAMPLE_FMT_FLTP:
+        case AV_SAMPLE_FMT_DBL:
+        case AV_SAMPLE_FMT_DBLP:
+            ((T*)output)[index] = (T)value;
+            break;
+    }
+}
+
 uint8_t * Virtualizer::get_short_samples(float * buffer, AVSampleFormat format, int sample_count) {
     // based on implementation here: https://www.targodan.de/post/decoding-audio-files-with-ffmpeg/
     int sample_size = av_get_bytes_per_sample(format);
@@ -123,39 +145,26 @@ uint8_t * Virtualizer::get_short_samples(float * buffer, AVSampleFormat format, 
 
     for (int i = 0; i < sample_count; i++) {
         int64_t current_val;
-        switch(format) {
-            case AV_SAMPLE_FMT_U8:
-            case AV_SAMPLE_FMT_S16:
-            case AV_SAMPLE_FMT_S32:
-            case AV_SAMPLE_FMT_U8P:
-            case AV_SAMPLE_FMT_S16P:
-            case AV_SAMPLE_FMT_S32P:
-                current_val = (int64_t)(buffer[i] * max_val);
-                break;
-            case AV_SAMPLE_FMT_FLT:
-            case AV_SAMPLE_FMT_FLTP:
-            case AV_SAMPLE_FMT_DBL:
-            case AV_SAMPLE_FMT_DBLP:
-                current_val = (int64_t)current_val;
-                break;
-        }
 
-        switch (sample_size) {
+        switch(sample_size) {
             case 1:
-                // add the minimum value of int8_t since we are going from back from signed to unsigned
-                ((uint8_t*)out)[i] = (uint8_t)(buffer[i] - SCHAR_MIN);
+                current_val = (uint8_t)(buffer[i] - SCHAR_MIN);
+                store_value<uint8_t>(out, current_val, max_val, format, i);
                 break;
 
             case 2:
-                ((int16_t*)out)[i] = (int16_t)current_val;
+                current_val = ((int16_t*)buffer)[i];
+                store_value<int16_t>(out, current_val, max_val, format, i);
                 break;
 
             case 4:
-                ((int32_t*)out)[i] = (int32_t)current_val;
+                current_val = ((int32_t*)buffer)[i];
+                store_value<int32_t>(out, current_val, max_val, format, i);
                 break;
 
             case 8:
-                ((int64_t*)out)[i] = current_val;
+                current_val = ((int64_t*)buffer)[i];
+                store_value<int64_t>(out, current_val, max_val, format, i);
                 break;
         }
     }
