@@ -3,6 +3,7 @@ default: copy-headers
 	$(MAKE) -C ./input
 	$(MAKE) -C ./virtualizer
 	$(MAKE) -C ./encoder
+	g++ -std=c++11 -c DSVSCA.cpp -I../include/ -o ../build/DSVSCA.o
 	g++ -std=c++11 -c main.cpp -I../include/ -o ../build/main.o
 
 debug: copy-headers
@@ -10,10 +11,12 @@ debug: copy-headers
 	$(MAKE) -C ./input -f Makefile debug
 	$(MAKE) -C ./virtualizer -f Makefile debug
 	$(MAKE) -C ./encoder -f Makefile debug
+	g++ -g -std=c++11 -c DSVSCA.cpp -I../include/ -o ../build/DSVSCA.o
 	g++ -g -std=c++11 -c main.cpp -I../include/ -o ../build/main.o
 
 copy-headers:
 	$(MAKE) -C ./sjoin -f Makefile copy-headers
 	$(MAKE) -C ./input -f Makefile copy-headers
 	$(MAKE) -C ./virtualizer -f Makefile copy-headers
+	cp *.h ../include/
 

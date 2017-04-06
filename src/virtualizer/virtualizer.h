@@ -29,8 +29,8 @@ struct complete_sofa {
 class Virtualizer {
 public:
     // The x-axis (1 0 0) is the listening direction. The y-axis (0 1 0) is the left side of the listener. The z-axis (0 0 1) is upwards.
-    Virtualizer(const char * sofa_file_name, int sample_rate, float x, float y, float z, int block_size = BLOCK_SIZE);
-    Virtualizer(complete_sofa sofa_, int sample_rate, float x, float y, float z, int block_size = BLOCK_SIZE);
+    Virtualizer(const char * sofa_file_name, int sample_rate, float x, float y, float z, int block_size);
+    Virtualizer(complete_sofa sofa_, int sample_rate, float x, float y, float z, int block_size);
     ~Virtualizer();
 
     float ** process(const float * source, size_t data_length);
