@@ -1,10 +1,14 @@
+BUILD:=../../build/
+INC:=../../include/
+FLAGS:=-std=c++11 -fpic -I$(INC)
+
 DSVSCA:
-	g++ -I../../include/ -c filter.cpp -o ../../build/filter.o 
-	g++ -I../../include/ -c format.cpp -o ../../build/format.o
+	g++ $(FLAGS) -c filter.cpp -o $(BUILD)filter.o 
+	g++ $(FLAGS) -c format.cpp -o $(BUILD)format.o
 
 debug:
-	g++ -g -I../../include/ -c filter.cpp -o ../../build/filter.o
-	g++ -g -I../../include/ -c format.cpp -o ../../build/format.o
+	g++ -g $(FLAGS) -c filter.cpp -o $(BUILD)filter.o
+	g++ -g $(FLAGS) -c format.cpp -o $(BUILD)format.o
 
 copy-headers:
-	cp *.h ../../include/
+	cp *.h $(INC)

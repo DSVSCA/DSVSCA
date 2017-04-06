@@ -2,7 +2,7 @@
 #include <vector>
 #include <fstream>
 #include <map>
-#include "../encoder/encoder.h"
+#include "encoder.h"
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>

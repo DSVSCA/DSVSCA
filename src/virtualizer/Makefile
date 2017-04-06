@@ -1,8 +1,12 @@
+BUILD:=../../build/
+INC:=../../include/
+FLAGS:=-std=c++11 -fpic -I$(INC)
+
 DSVSCA:
-	g++ -std=c++11 -I../../include -c virtualizer.cpp -o ../../build/virtualizer.o
+	g++ $(FLAGS) -c virtualizer.cpp -o $(BUILD)virtualizer.o
 
 debug:
-	g++ -std=c++11 -g -I../../include -c virtualizer.cpp -o ../../build/virtualizer.o
+	g++ -g $(FLAGS) -c virtualizer.cpp -o $(BUILD)virtualizer.o
 
 copy-headers:
-	cp *.h ../../include/
+	cp *.h $(INC)

@@ -2,12 +2,12 @@
 #define DSVSCA_H
 
 #include <iostream>
-#include "input/filter.h"
-#include "input/format.h"
-#include "encoder/encoder.h"
-#include "sjoin/sjoin.h"
-//#include "sjoin/testjoin.h"
-#include "virtualizer/virtualizer.h"
+#include "filter.h"
+#include "format.h"
+#include "encoder.h"
+#include "sjoin.h"
+//#include "testjoin.h"
+#include "virtualizer.h"
 #include <ctime>
 #include <stdio.h>
 #include <libavutil/fifo.h>

@@ -36,7 +36,7 @@ libFFTConvolver.a:
 	rm non-uniform.zip
 	mv FFTConvolver-non-uniform FFTConvolver
 	cd FFTConvolver;\
-		g++ -std=c++11 -c *.cpp;\
+		g++ -std=c++11 -fpic -c *.cpp;\
 		ar rcs libFFTConvolver.a *.o;\
 		mv libFFTConvolver.a ../;\
 		cp *.h ../../include/
@@ -63,7 +63,7 @@ libmysofa.a:
 	unzip master.zip
 	rm master.zip
 	cd libmysofa-master/build;\
-		cmake -DCMAKE_BUILD_TYPE=Debug ..;\
+		CFLAGS="-fpic" CXXFLAGS="-fpic" cmake -DCMAKE_BUILD_TYPE=Debug ..;\
 		make mysofa-static
 	cp libmysofa-master/build/src/libmysofa.a ./
 

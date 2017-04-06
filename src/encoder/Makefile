@@ -1,8 +1,12 @@
+BUILD:=../../build/
+INC:=../../include/
+FLAGS:=-std=c++11 -fpic -I$(INC)
+
 DSVSCA:
-	g++ -I../../include/ -c encoder.cpp -o ../../build/encoder.o 
+	g++ $(FLAGS) -c encoder.cpp -o $(BUILD)encoder.o 
 
 debug:
-	g++ -g -I../../include/ -c encoder.cpp -o ../../build/encoder.o
+	g++ -g $(FLAGS) -c encoder.cpp -o $(BUILD)encoder.o
 
 copy-headers:
-	cp *.h ../../include/
+	cp *.h $(INC)

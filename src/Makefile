@@ -1,22 +1,25 @@
+BUILD:=../build/
+INC:=../include/
+FLAGS:=-std=c++11 -fpic -I$(INC)
+
 default: copy-headers
 	$(MAKE) -C ./sjoin
 	$(MAKE) -C ./input
 	$(MAKE) -C ./virtualizer
 	$(MAKE) -C ./encoder
-	g++ -std=c++11 -c DSVSCA.cpp -I../include/ -o ../build/DSVSCA.o
-	g++ -std=c++11 -c main.cpp -I../include/ -o ../build/main.o
+	g++ $(FLAGS) -c DSVSCA.cpp -o $(BUILD)DSVSCA.o
 
 debug: copy-headers
 	$(MAKE) -C ./sjoin -f Makefile debug
 	$(MAKE) -C ./input -f Makefile debug
 	$(MAKE) -C ./virtualizer -f Makefile debug
 	$(MAKE) -C ./encoder -f Makefile debug
-	g++ -g -std=c++11 -c DSVSCA.cpp -I../include/ -o ../build/DSVSCA.o
-	g++ -g -std=c++11 -c main.cpp -I../include/ -o ../build/main.o
+	g++ -g $(FLAGS) -c DSVSCA.cpp -o $(BUILD)DSVSCA.o
 
 copy-headers:
 	$(MAKE) -C ./sjoin -f Makefile copy-headers
 	$(MAKE) -C ./input -f Makefile copy-headers
 	$(MAKE) -C ./virtualizer -f Makefile copy-headers
-	cp *.h ../include/
+	$(MAKE) -C ./encoder -f Makefile copy-headers
+	cp *.h $(INC)
 

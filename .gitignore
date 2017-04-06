@@ -42,7 +42,11 @@
 # Work Directories
 include/
 build/*
+example/*
 dependencies/*
 !dependencies/Makefile
 !build/Makefile
+!example/Makefile
+!example/*.cpp
+!example/*.h
 !testing/*

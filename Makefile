@@ -1,10 +1,12 @@
 default: build-deps
 	$(MAKE) -C ./src
 	$(MAKE) -C ./build
+	$(MAKE) -C ./example
 
 debug: build-deps
 	$(MAKE) -C ./src -f Makefile debug
 	$(MAKE) -C ./build
+	$(MAKE) -C ./example -f Makefile debug
 
 make-dirs:
 	if [ ! -d "./include" ]; then mkdir include; fi
@@ -18,3 +20,4 @@ clean-deps:
 clean:
 	rm -rf ./include
 	find ./build/ -type f ! \( -iname "makefile" -or -iname "*.mp4" -or -iname "*.sofa" -or -iname "*.wav" \) -delete
+	find ./example/ -type f ! \( -iname "makefile" -or -iname "*.mp4" -or -iname "*.sofa" -or -iname "*.wav" -or -iname "*.cpp" -or -iname "*.h" \) -delete

@@ -1,4 +1,5 @@
 LIBS:=-lavfilter -pthread -lswscale -lavformat -lavcodec -lswresample -ldl -lm -lavutil -lFFTConvolver -lmysofa -lz
 
 default:
-	g++ *.o -I../include/ -L./ $(LIBS) -o DSVSCA
+	ar rcs libDSVSCA.a *.o
+	g++ -L./ -shared -o libDSVSCA.so *.o -Wl,--whole-archive -lFFTConvolver -lmysofa -Wl,--no-whole-archive
