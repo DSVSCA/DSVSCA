@@ -41,16 +41,20 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
     FILE *lfe;
     FILE *bl;
     FILE *br;
+    FILE *vf;
+    /*
     const char *fl_filename = "FL.aac";
     const char *fr_filename = "FR.aac";
     const char *fc_filename = "FC.aac";
     const char *lfe_filename = "LFE.aac";
     const char *bl_filename = "BL.aac";
     const char *br_filename= "BR.aac";
-
+    */
+    const char *vf_filename = "virtualize.aac";
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
+    AVFrame *comb_virt_frame = av_frame_alloc();
     int got_frame;
 
 
@@ -59,6 +63,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
 
 
     AVPacket packet_out;
+    AVPacket comb_packet_out;
     int got_output;
 
     Encoder *encoder = new Encoder(AV_CODEC_ID_AC3,
@@ -66,14 +71,20 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
 
     SJoin  *sjoin  = new SJoin(encoder);
     //TestJoin *testjoin = new TestJoin(encoder);
-
+/*
     fl = fopen(fl_filename, "wb");
     fr = fopen(fr_filename, "wb");
     fc = fopen(fc_filename, "wb");
     lfe = fopen(lfe_filename, "wb");
     bl = fopen(bl_filename, "wb");
     br = fopen(br_filename, "wb");
+    vf = fopen(vf_filename, "wb");
     if(!fl || !fr || !fc || !lfe || !bl || !br) {
+        std::cout << "Error opening file" << std::endl;
+    }
+*/
+    vf = fopen(vf_filename, "wb");
+    if(!vf) {
         std::cout << "Error opening file" << std::endl;
     }
 
@@ -111,6 +122,7 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                 }
 
                 int i ;
+            
                 while(ret >= 0) {
                     // This is where you will work with each processed frame.
 
@@ -169,41 +181,14 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         virt_frame->channel_layout = 3;
 
 
-                       // This will move once virtualizaiton works
-                        av_init_packet(&packet_out);
-                        packet_out.data = NULL;
-                        packet_out.size = 0;
-
-                        ret = avcodec_encode_audio2(encoder->codec_ctx, &packet_out, virt_frame, &got_output);
-                        if(ret < 0) exit(1);
+                        av_log(NULL, AV_LOG_INFO, "%d ", i);
                         
-                        if(it->first == Filter::FL && got_output) 
-				fwrite(packet_out.data, 1, packet_out.size, fl);
-                        else if(it->first == Filter::FR && got_output) 
-				fwrite(packet_out.data, 1, packet_out.size, fr);
-                        else if(it->first == Filter::FC && got_output) 
-				fwrite(packet_out.data, 1, packet_out.size, fc);
-                        else if(it->first == Filter::LFE && got_output)
-                                fwrite(packet_out.data, 1, packet_out.size, lfe);
-                        else if(it->first == Filter::BL && got_output) 
-				fwrite(packet_out.data, 1, packet_out.size, bl);
-                        else if(it->first == Filter::BR && got_output) 
-				fwrite(packet_out.data, 1, packet_out.size, br);
-
-                        av_free_packet(&packet_out); 
-
-                        //if(av_buffersrc_add_frame_flags(sjoin->abuffers_ctx[i], virt_frame, 0) < 0)
-                        //    av_log(NULL, AV_LOG_ERROR, "Error feeding into filtergraph\n");
-                        //                       AVFrame *test_virt_frame = av_frame_alloc();
-                        //ret = av_buffersink_get_frame(sjoin->abuffersink_ctx, test_virt_frame);
+                        if(av_buffersrc_add_frame_flags(sjoin->abuffers_ctx[i], virt_frame, 0) < 0)
+                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filtergraph\n");
                         //if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
-                        
-                        /*
-                        if(av_buffersrc_add_frame_flags(sjoin->right_abuffers_ctx[i], r_frame, 0) < 0) {
-                            av_log(NULL, AV_LOG_ERROR, "Error feeding into filter graph\n");
-                            break;
-                        }
-                        */
+                    
+                             
+                       
                         // TODO: do something with the result
 
                         //std::cout << "FR";
@@ -212,7 +197,28 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
                         //av_frame_unref(r_frame);
                         i++;
                     }
-                    av_frame_unref(filt_frame);
+                    
+                    av_log(NULL, AV_LOG_INFO, "Try get frame! \n");
+                    ret = -1;
+                    ret = av_buffersink_get_frame(sjoin->abuffersink_ctx, comb_virt_frame);
+                    if(ret < 0) {
+                        av_log(NULL, AV_LOG_ERROR, "No virtualization frame %d\n", ret);
+                        continue;
+                    }
+                    av_init_packet(&comb_packet_out);
+                    comb_packet_out.data = NULL;
+                    comb_packet_out.size = 0;
+                   
+                    ret = avcodec_encode_audio2(encoder->codec_ctx, &comb_packet_out, comb_virt_frame, &got_output);
+                    if(ret < 0) {
+                        av_log(NULL, AV_LOG_ERROR, "Error encoding comb frame %d\n", ret);  
+                        exit(1);
+                    }                   
+                    
+                    fwrite(comb_packet_out.data, 1, comb_packet_out.size, vf);
+                    
+                    av_free_packet(&comb_packet_out);
+                    av_frame_unref(comb_virt_frame);
                 }
             }
             if(packet.size <= 0) av_free_packet(&packet0);
@@ -220,15 +226,17 @@ int process_filter_graph(Format *fmt, Filter *filter, std::string sofa_file_name
             av_free_packet(&packet0);
         }
     }
+    /*
     fclose(fl);
     fclose(fr);
     fclose(fc);
     fclose(lfe);
     fclose(br);
-    fclose(bl);
-    
+    fclose(bl);*/
+    fclose(vf); 
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
+    av_frame_free(&comb_virt_frame);
     delete filter;
     delete fmt;
 }
