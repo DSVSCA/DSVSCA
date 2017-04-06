@@ -192,6 +192,9 @@ int DSVSCA::process_filter_graph(process_info info) {
             av_free_packet(&packet0);
         }
     }
+
+    for (auto it = c2v_.begin(); it != c2v_.end(); it++) delete it->second;
+
     /*
     fclose(fl);
     fclose(fr);

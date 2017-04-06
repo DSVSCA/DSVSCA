@@ -50,6 +50,7 @@ private:
     fftconvolver::FFTConvolver * left_conv;
     fftconvolver::FFTConvolver * right_conv;
 
+    bool created_hrtf;
     sofa_file * hrtf = NULL;
     float * left_ir = NULL;
     float * right_ir = NULL;

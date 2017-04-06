@@ -3,10 +3,12 @@
 // The x-axis (1 0 0) is the listening direction. The y-axis (0 1 0) is the left side of the listener. The z-axis (0 0 1) is upwards.
 Virtualizer::Virtualizer(const char * sofa_file_name, int sample_rate, float x, float y, float z, int block_size) {
     this->open_sofa(sofa_file_name, sample_rate);
+    this->created_hrtf = true;
     this->init(sample_rate, x, y, z, block_size);
 }
 
 Virtualizer::Virtualizer(complete_sofa sofa_, int sample_rate, float x, float y, float z, int block_size) {
+    this->created_hrtf = false;
     this->hrtf = sofa_.hrtf;
     this->filter_length = sofa_.filter_length;
 
@@ -14,7 +16,7 @@ Virtualizer::Virtualizer(complete_sofa sofa_, int sample_rate, float x, float y,
 }
 
 Virtualizer::~Virtualizer() {
-    this->close_sofa();
+    if (created_hrtf) this->close_sofa();
     delete[] this->right_ir;
     delete[] this->left_ir;
     delete[] this->overflow_audio;
