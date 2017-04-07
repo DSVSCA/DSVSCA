@@ -54,13 +54,16 @@ int DSVSCA::process_filter_graph(process_info info) {
         std::cout << "Error opening file" << std::endl;
     }
 
+    long total_duration = info.format->format_ctx->duration / (long)AV_TIME_BASE;
+    uint64_t total_sample_count = 0;
+    uint64_t samples_completed = 0;
+
     int ret = 0;
 
     /* Read all of the packets */
     packet0.data = NULL;
     packet.data = NULL;
     while(1) {
-
         if(!packet0.data) {
             ret = av_read_frame(info.format->format_ctx, &packet);
             if(ret < 0) break;
@@ -88,6 +91,7 @@ int DSVSCA::process_filter_graph(process_info info) {
                 }
 
                 int i ;
+                int frame_sample_count = 0;
             
                 while(ret >= 0) {
                     // This is where you will work with each processed frame.
@@ -99,9 +103,10 @@ int DSVSCA::process_filter_graph(process_info info) {
                         ret = av_buffersink_get_frame(it->second, filt_frame);
                         if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
 
-
                         int sample_count = filt_frame->nb_samples;
                         int sample_rate = filt_frame->sample_rate;
+                        if (total_sample_count == 0) total_sample_count = total_duration * sample_rate;
+                        if (frame_sample_count == 0) frame_sample_count = sample_count;
 
                         if (c2v_.count(it->first) == 0) {
                             float x;
@@ -143,6 +148,7 @@ int DSVSCA::process_filter_graph(process_info info) {
                         delete[] float_results[1];
                         delete[] float_results;
                         delete[] samples;
+
 
                         AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, result_r,
                                 result_l);
@@ -186,10 +192,18 @@ int DSVSCA::process_filter_graph(process_info info) {
                     av_free_packet(&comb_packet_out);
                     av_frame_unref(comb_virt_frame);
                 }
+
+                samples_completed += frame_sample_count;
             }
             if(packet.size <= 0) av_free_packet(&packet0);
         } else {
             av_free_packet(&packet0);
+        }
+
+        if (total_sample_count != 0) {
+            int completion = (100 * samples_completed) / total_sample_count;
+            if (completion > 100) completion = 100;
+            info.progress->store(completion);
         }
     }
 

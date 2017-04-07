@@ -1,6 +1,7 @@
 #ifndef DSVSCA_H
 #define DSVSCA_H
 
+#include <atomic>
 #include <iostream>
 #include "filter.h"
 #include "format.h"
@@ -49,6 +50,7 @@ struct process_info {
     std::string sofa_file_name;
     std::unordered_map<Filter::Channel, coordinate, std::hash<int>> coords;
     int block_size = BLOCK_SIZE;
+    std::atomic_int * progress;
 };
 
 class DSVSCA {
