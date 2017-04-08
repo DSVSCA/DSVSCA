@@ -1,21 +1,8 @@
 #include "DSVSCA.h"
 
 int DSVSCA::process_filter_graph(process_info info) {
-    FILE *fl;
-    FILE *fr;
-    FILE *fc;
-    FILE *lfe;
-    FILE *bl;
-    FILE *br;
     FILE *vf;
-    /*
-    const char *fl_filename = "FL.aac";
-    const char *fr_filename = "FR.aac";
-    const char *fc_filename = "FC.aac";
-    const char *lfe_filename = "LFE.aac";
-    const char *bl_filename = "BL.aac";
-    const char *br_filename= "BR.aac";
-    */
+
     const char *vf_filename = "virtualize.aac";
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
@@ -37,18 +24,7 @@ int DSVSCA::process_filter_graph(process_info info) {
 
     SJoin  *sjoin  = new SJoin(encoder);
     //TestJoin *testjoin = new TestJoin(encoder);
-/*
-    fl = fopen(fl_filename, "wb");
-    fr = fopen(fr_filename, "wb");
-    fc = fopen(fc_filename, "wb");
-    lfe = fopen(lfe_filename, "wb");
-    bl = fopen(bl_filename, "wb");
-    br = fopen(br_filename, "wb");
-    vf = fopen(vf_filename, "wb");
-    if(!fl || !fr || !fc || !lfe || !bl || !br) {
-        std::cout << "Error opening file" << std::endl;
-    }
-*/
+    
     vf = fopen(vf_filename, "wb");
     if(!vf) {
         std::cout << "Error opening file" << std::endl;
@@ -128,7 +104,8 @@ int DSVSCA::process_filter_graph(process_info info) {
                             }
                             else {
                                 //TODO: delete these after execution
-                                Virtualizer * virt = new Virtualizer(sofa_, sample_rate, x, y, z, info.block_size);
+                                Virtualizer * virt = new Virtualizer(sofa_, sample_rate, 
+                                        x, y, z, info.block_size);
                                 c2v_.insert(std::make_pair(it->first, virt));
                             }
                         }
@@ -149,7 +126,6 @@ int DSVSCA::process_filter_graph(process_info info) {
                         delete[] float_results;
                         delete[] samples;
 
-
                         AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, result_r,
                                 result_l);
                         
@@ -157,22 +133,19 @@ int DSVSCA::process_filter_graph(process_info info) {
                         virt_frame->sample_rate = 48000;
                         virt_frame->channel_layout = 3;
 
-                        av_log(NULL, AV_LOG_INFO, "%d ", i);
+                        //av_log(NULL, AV_LOG_INFO, "%d ", i);
                         
                         if(av_buffersrc_add_frame_flags(sjoin->abuffers_ctx[i], virt_frame, 0) < 0)
                             av_log(NULL, AV_LOG_ERROR, "Error feeding into filtergraph\n");
-                        //if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     
 
-                        av_frame_unref(virt_frame);
                         av_frame_unref(filt_frame);
-                        //av_frame_unref(r_frame);
                         i++;
                     }
                     
-                    av_log(NULL, AV_LOG_INFO, "Try get frame! \n");
-                    ret = -1;
+                    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     ret = av_buffersink_get_frame(sjoin->abuffersink_ctx, comb_virt_frame);
+                    
                     if(ret < 0) {
                         av_log(NULL, AV_LOG_ERROR, "No virtualization frame %d\n", ret);
                         continue;
@@ -181,7 +154,8 @@ int DSVSCA::process_filter_graph(process_info info) {
                     comb_packet_out.data = NULL;
                     comb_packet_out.size = 0;
                    
-                    ret = avcodec_encode_audio2(encoder->codec_ctx, &comb_packet_out, comb_virt_frame, &got_output);
+                    ret = avcodec_encode_audio2(encoder->codec_ctx, &comb_packet_out, 
+                            comb_virt_frame, &got_output);
                     if(ret < 0) {
                         av_log(NULL, AV_LOG_ERROR, "Error encoding comb frame %d\n", ret);  
                         exit(1);
@@ -209,13 +183,6 @@ int DSVSCA::process_filter_graph(process_info info) {
 
     for (auto it = c2v_.begin(); it != c2v_.end(); it++) delete it->second;
 
-    /*
-    fclose(fl);
-    fclose(fr);
-    fclose(fc);
-    fclose(lfe);
-    fclose(br);
-    fclose(bl);*/
     fclose(vf); 
     av_frame_free(&frame);
     av_frame_free(&filt_frame);

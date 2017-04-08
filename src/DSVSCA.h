@@ -7,7 +7,6 @@
 #include "format.h"
 #include "encoder.h"
 #include "sjoin.h"
-//#include "testjoin.h"
 #include "virtualizer.h"
 #include <ctime>
 #include <stdio.h>
