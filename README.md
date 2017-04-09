@@ -12,7 +12,7 @@ or
 
 The program and all dependencies should automatically build and compile. All build objects output to the build folder.
 
-The make process produces 3 main files: libDSVSCA.a, libDSVSCA.so, and DSVSCA. Both libDSVSCA.a and libDSVSCA.so are libraries that can be compiled into programs. DSVSCA is a command line program compiled in the example folder and allows for easy use of DSVSCA.
+The make process produces 3 main files: libDSVSCA.a, libDSVSCA.so, and DSVSCA. Both libDSVSCA.a and libDSVSCA.so are the static and shared DSVSCA libraries that can be linked into other programs. These two libraries can be found in the build folder after compilation. Note that you only need to use one of the libraries for DSVSCA to work since they are the same library but compiled differently. DSVSCA is a command line program compiled in the example folder and allows for easy use of DSVSCA.
 
 ## Running DSVSCA
 ```
