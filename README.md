@@ -6,7 +6,13 @@ In the root directory, run the following command:
 
 > make
 
-The program and all dependencies should automatically build and compile.
+or
+
+> make debug
+
+The program and all dependencies should automatically build and compile. All build objects output to the build folder.
+
+The make process produces 3 main files: libDSVSCA.a, libDSVSCA.so, and DSVSCA. Both libDSVSCA.a and libDSVSCA.so are libraries that can be compiled into programs. DSVSCA is a command line program compiled in the example folder and allows for easy use of DSVSCA.
 
 ## Running DSVSCA
 ```
