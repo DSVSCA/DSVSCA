@@ -31,12 +31,12 @@ int main(int argc, char *argv[]) {
 
     int progress_i = info.progress->load();
     while (progress_i < 100) {
-        printf("Progress: %d%\n", progress_i);
+        std::cout << "Progress: " << progress_i << "%\r" << std::flush;
         progress_i = info.progress->load();
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 
-    printf("Progress: 100%\nCleaning Up.\n");
+    std::cout << "Progress: 100%" << std::endl << "Cleaning Up." << std::endl;
     worker.join();
 
     end = clock();
