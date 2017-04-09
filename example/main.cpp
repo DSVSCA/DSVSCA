@@ -24,14 +24,11 @@ coordinate parse_coordinates(std::string coordinates) {
 process_info parse_inputs(int argc, char ** argv) {
     process_info info;
 
-    std::atomic_int progress(0);
-    info.progress = &progress;
-
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         std::string current_input = std::string(argv[i]);
         int index_of_eq = current_input.find("=");
-        std::string arg_name = current_input.substr(2, index_of_eq - 2);
-        std::string arg_val = current_input.substr(index_of_eq + 1);
+        std::string arg_name = index_of_eq == std::string::npos ? current_input.substr(1) : current_input.substr(2, index_of_eq - 2);
+        std::string arg_val = index_of_eq == std::string::npos ? std::string(argv[++i]) : current_input.substr(index_of_eq + 1);
 
         Filter::Channel channel;
 
@@ -57,16 +54,16 @@ process_info parse_inputs(int argc, char ** argv) {
                 info.coords.insert(std::make_pair(Filter::LFE, coords));
             }
         }
-        else if (arg_name == "video") {
+        else if (arg_name == "video" || arg_name == "v") {
             info.video_file_name = arg_val;
         }
-        else if (arg_name == "sofa") {
+        else if (arg_name == "sofa" || arg_name == "s") {
             info.sofa_file_name = arg_val;
         }
-        else if (arg_name == "block-size") {
+        else if (arg_name == "block-size" || arg_name == "b") {
             info.block_size = atoi(arg_val.c_str());
         }
-        else if (arg_name == "coord-type") {
+        else if (arg_name == "coord-type" || arg_name == "c") {
             std::transform(arg_val.begin(), arg_val.end(), arg_val.begin(), ::tolower);
             if (arg_val == "cartesian") info.coord_type = Filter::Cartesian;
             else if (arg_val == "spherical") info.coord_type = Filter::Spherical;
@@ -89,7 +86,9 @@ int main(int argc, char ** argv) {
     begin = clock();
     info.format = &format;
     info.filter = &filter;
-    DSVSCA::process_filter_graph(info);
+
+    std::atomic_int progress(0);
+    info.progress = &progress;
 
     std::thread worker([&info] {
         DSVSCA::process_filter_graph(info);
@@ -97,8 +96,8 @@ int main(int argc, char ** argv) {
 
     int progress_i = info.progress->load();
     while (progress_i < 100) {
-        std::cout << "Progress: " << progress_i << "%\r" << std::flush;
         progress_i = info.progress->load();
+        std::cout << "Progress: " << progress_i << "%\r" << std::flush;
         std::this_thread::sleep_for(std::chrono::milliseconds(250));
     }
 
