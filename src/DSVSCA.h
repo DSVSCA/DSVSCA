@@ -1,12 +1,12 @@
 #ifndef DSVSCA_H
 #define DSVSCA_H
 
+#include <atomic>
 #include <iostream>
 #include "filter.h"
 #include "format.h"
 #include "encoder.h"
 #include "sjoin.h"
-//#include "testjoin.h"
 #include "virtualizer.h"
 #include <ctime>
 #include <stdio.h>
@@ -51,6 +51,7 @@ struct process_info {
     Filter::Coord_Type coord_type;
     std::unordered_map<Filter::Channel, coordinate, std::hash<int>> coords;
     int block_size = BLOCK_SIZE;
+    std::atomic_int * progress;
 };
 
 class DSVSCA {

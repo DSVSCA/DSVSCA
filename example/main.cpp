@@ -1,4 +1,6 @@
 #include "DSVSCA.h"
+#include <thread>
+#include <chrono>
 
 coordinate parse_coordinates(std::string coordinates) {
     coordinate to_return;
@@ -21,6 +23,9 @@ coordinate parse_coordinates(std::string coordinates) {
 
 process_info parse_inputs(int argc, char ** argv) {
     process_info info;
+
+    std::atomic_int progress(0);
+    info.progress = &progress;
 
     for (int i = 0; i < argc; i++) {
         std::string current_input = std::string(argv[i]);
@@ -85,6 +90,21 @@ int main(int argc, char ** argv) {
     info.format = &format;
     info.filter = &filter;
     DSVSCA::process_filter_graph(info);
+
+    std::thread worker([&info] {
+        DSVSCA::process_filter_graph(info);
+    });
+
+    int progress_i = info.progress->load();
+    while (progress_i < 100) {
+        std::cout << "Progress: " << progress_i << "%\r" << std::flush;
+        progress_i = info.progress->load();
+        std::this_thread::sleep_for(std::chrono::milliseconds(250));
+    }
+
+    std::cout << "Progress: 100%" << std::endl << "Cleaning Up." << std::endl;
+    worker.join();
+
     end = clock();
 
     std::cout << "Processing Time: " << (double)(end - begin) / CLOCKS_PER_SEC << " s" << std::endl;

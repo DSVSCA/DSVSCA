@@ -1,21 +1,8 @@
 #include "DSVSCA.h"
 
 int DSVSCA::process_filter_graph(process_info info) {
-    FILE *fl;
-    FILE *fr;
-    FILE *fc;
-    FILE *lfe;
-    FILE *bl;
-    FILE *br;
     FILE *vf;
-    /*
-    const char *fl_filename = "FL.aac";
-    const char *fr_filename = "FR.aac";
-    const char *fc_filename = "FC.aac";
-    const char *lfe_filename = "LFE.aac";
-    const char *bl_filename = "BL.aac";
-    const char *br_filename= "BR.aac";
-    */
+
     const char *vf_filename = "virtualize.aac";
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
@@ -37,22 +24,15 @@ int DSVSCA::process_filter_graph(process_info info) {
 
     SJoin  *sjoin  = new SJoin(encoder);
     //TestJoin *testjoin = new TestJoin(encoder);
-/*
-    fl = fopen(fl_filename, "wb");
-    fr = fopen(fr_filename, "wb");
-    fc = fopen(fc_filename, "wb");
-    lfe = fopen(lfe_filename, "wb");
-    bl = fopen(bl_filename, "wb");
-    br = fopen(br_filename, "wb");
-    vf = fopen(vf_filename, "wb");
-    if(!fl || !fr || !fc || !lfe || !bl || !br) {
-        std::cout << "Error opening file" << std::endl;
-    }
-*/
+    
     vf = fopen(vf_filename, "wb");
     if(!vf) {
         std::cout << "Error opening file" << std::endl;
     }
+
+    long total_duration = info.format->format_ctx->duration / (long)AV_TIME_BASE;
+    uint64_t total_sample_count = 0;
+    uint64_t samples_completed = 0;
 
     int ret = 0;
 
@@ -60,7 +40,6 @@ int DSVSCA::process_filter_graph(process_info info) {
     packet0.data = NULL;
     packet.data = NULL;
     while(1) {
-
         if(!packet0.data) {
             ret = av_read_frame(info.format->format_ctx, &packet);
             if(ret < 0) break;
@@ -88,6 +67,7 @@ int DSVSCA::process_filter_graph(process_info info) {
                 }
 
                 int i ;
+                int frame_sample_count = 0;
             
                 while(ret >= 0) {
                     // This is where you will work with each processed frame.
@@ -99,9 +79,10 @@ int DSVSCA::process_filter_graph(process_info info) {
                         ret = av_buffersink_get_frame(it->second, filt_frame);
                         if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
 
-
                         int sample_count = filt_frame->nb_samples;
                         int sample_rate = filt_frame->sample_rate;
+                        if (total_sample_count == 0) total_sample_count = total_duration * sample_rate;
+                        if (frame_sample_count == 0) frame_sample_count = sample_count;
 
                         if (c2v_.count(it->first) == 0) {
                             float x;
@@ -123,7 +104,8 @@ int DSVSCA::process_filter_graph(process_info info) {
                             }
                             else {
                                 //TODO: delete these after execution
-                                Virtualizer * virt = new Virtualizer(sofa_, sample_rate, x, y, z, info.block_size);
+                                Virtualizer * virt = new Virtualizer(sofa_, sample_rate, 
+                                        x, y, z, info.block_size);
                                 c2v_.insert(std::make_pair(it->first, virt));
                             }
                         }
@@ -151,22 +133,19 @@ int DSVSCA::process_filter_graph(process_info info) {
                         virt_frame->sample_rate = 48000;
                         virt_frame->channel_layout = 3;
 
-                        av_log(NULL, AV_LOG_INFO, "%d ", i);
+                        //av_log(NULL, AV_LOG_INFO, "%d ", i);
                         
                         if(av_buffersrc_add_frame_flags(sjoin->abuffers_ctx[i], virt_frame, 0) < 0)
                             av_log(NULL, AV_LOG_ERROR, "Error feeding into filtergraph\n");
-                        //if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     
 
-                        av_frame_unref(virt_frame);
                         av_frame_unref(filt_frame);
-                        //av_frame_unref(r_frame);
                         i++;
                     }
                     
-                    av_log(NULL, AV_LOG_INFO, "Try get frame! \n");
-                    ret = -1;
+                    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
                     ret = av_buffersink_get_frame(sjoin->abuffersink_ctx, comb_virt_frame);
+                    
                     if(ret < 0) {
                         av_log(NULL, AV_LOG_ERROR, "No virtualization frame %d\n", ret);
                         continue;
@@ -175,7 +154,8 @@ int DSVSCA::process_filter_graph(process_info info) {
                     comb_packet_out.data = NULL;
                     comb_packet_out.size = 0;
                    
-                    ret = avcodec_encode_audio2(encoder->codec_ctx, &comb_packet_out, comb_virt_frame, &got_output);
+                    ret = avcodec_encode_audio2(encoder->codec_ctx, &comb_packet_out, 
+                            comb_virt_frame, &got_output);
                     if(ret < 0) {
                         av_log(NULL, AV_LOG_ERROR, "Error encoding comb frame %d\n", ret);  
                         exit(1);
@@ -186,22 +166,23 @@ int DSVSCA::process_filter_graph(process_info info) {
                     av_free_packet(&comb_packet_out);
                     av_frame_unref(comb_virt_frame);
                 }
+
+                samples_completed += frame_sample_count;
             }
             if(packet.size <= 0) av_free_packet(&packet0);
         } else {
             av_free_packet(&packet0);
         }
+
+        if (total_sample_count != 0) {
+            int completion = (100 * samples_completed) / total_sample_count;
+            if (completion > 100) completion = 100;
+            info.progress->store(completion);
+        }
     }
 
     for (auto it = c2v_.begin(); it != c2v_.end(); it++) delete it->second;
 
-    /*
-    fclose(fl);
-    fclose(fr);
-    fclose(fc);
-    fclose(lfe);
-    fclose(br);
-    fclose(bl);*/
     fclose(vf); 
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
