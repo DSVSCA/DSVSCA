@@ -48,7 +48,7 @@ struct process_info {
     Filter * filter;
     std::string video_file_name;
     std::string sofa_file_name;
-    Filter::Coord_Type coord_type;
+    Filter::Coord_Type coord_type = Filter::Cartesian;
     std::unordered_map<Filter::Channel, coordinate, std::hash<int>> coords;
     int block_size = BLOCK_SIZE;
     std::atomic_int * progress;

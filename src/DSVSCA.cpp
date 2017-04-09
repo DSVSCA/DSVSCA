@@ -85,27 +85,25 @@ int DSVSCA::process_filter_graph(process_info info) {
                         if (frame_sample_count == 0) frame_sample_count = sample_count;
 
                         if (c2v_.count(it->first) == 0) {
-                            float x;
-                            float y;
-                            float z;
-                            if (info.coords.count(it->first) == 0) Filter::get_coords(it->first, &x, &y, &z);
+                            float x_y_z[3];
+                            if (info.coords.count(it->first) == 0) Filter::get_coords(it->first, &x_y_z[0], &x_y_z[1], &x_y_z[2]);
                             else {
-                                x = info.coords.at(it->first).x;
-                                y = info.coords.at(it->first).y;
-                                z = info.coords.at(it->first).z;
+                                x_y_z[0] = info.coords.at(it->first).x;
+                                x_y_z[1] = info.coords.at(it->first).y;
+                                x_y_z[2] = info.coords.at(it->first).z;
+
+                                if (info.coord_type == Filter::Spherical) mysofa_s2c(x_y_z);
                             }
 
                             if (sofa_.hrtf == NULL) {
-                                //TODO: delete these after execution
                                 Virtualizer * virt = new Virtualizer(info.sofa_file_name.c_str(), 
-                                        sample_rate, x, y, z, info.block_size);
+                                        sample_rate, x_y_z[0], x_y_z[1], x_y_z[2], info.block_size);
                                 c2v_.insert(std::make_pair(it->first, virt));
                                 sofa_ = virt->get_hrtf();
                             }
                             else {
-                                //TODO: delete these after execution
                                 Virtualizer * virt = new Virtualizer(sofa_, sample_rate, 
-                                        x, y, z, info.block_size);
+                                        x_y_z[0], x_y_z[1], x_y_z[2], info.block_size);
                                 c2v_.insert(std::make_pair(it->first, virt));
                             }
                         }
