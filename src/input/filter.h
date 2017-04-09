@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -20,12 +21,18 @@ class Filter {
 
 public:
     enum Channel {
+        INVALID = -1,
         FL = 0,
         FR = 1,
         FC = 2,
         LFE = 3,
         BL = 4,
         BR = 5,
+    };
+
+    enum Coord_Type {
+        Cartesian = 0,
+        Spherical = 1
     };
 
     Filter(Format *fmt);

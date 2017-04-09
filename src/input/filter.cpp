@@ -222,13 +222,15 @@ int Filter::init_abuffersink_ctx() {
 }
 
 Filter::Channel Filter::str_to_channel(std::string channel_name) {
+    std::transform(channel_name.begin(), channel_name.end(), channel_name.begin(), ::toupper);
+
     if (channel_name == "FL") return FL;
     else if (channel_name == "FR") return FR;
     else if (channel_name == "FC") return FC;
     else if (channel_name == "LFE") return LFE;
     else if (channel_name == "BR") return BR;
     else if (channel_name == "BL") return BL;
-    else return FL;
+    else return INVALID;
 }
 
 // The x-axis (1 0 0) is the listening direction. The y-axis (0 1 0) is the left side of the listener. The z-axis (0 0 1) is upwards.

@@ -3,6 +3,12 @@ import java.awt.Dimension;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map.Entry;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -16,12 +22,56 @@ import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 
 public class DSVSCA extends JFrame {
+    public enum Channel {
+        FL,
+        FC,
+        FR,
+        BL,
+        BR,
+        LFE
+    }
 
 	private static final long serialVersionUID = 1L;
 
 	public DSVSCA() {
 
         initUI();
+    }
+
+    private void callDSVSCA(String videoFile, String sofaFile, int blockSize, HashMap<Channel, int[]> coordinates) {
+        ArrayList<String> cmd = new ArrayList<String>();
+        cmd.add("./DSVSCA");
+        cmd.add("--video=" + videoFile);
+        cmd.add("--sofa=" + sofaFile);
+        cmd.add("--block-size=" + blockSize);
+        
+        for (Entry<Channel, int[]> coord : coordinates.entrySet()) {
+            cmd.add(String.format("--%s=%d,%d,%d", coord.getKey().toString().toLowerCase(), coord.getValue()[0], coord.getValue()[1], coord.getValue()[2]));
+        }
+
+        Process proc;
+		try {
+			proc = Runtime.getRuntime().exec((String[])cmd.toArray());
+		} catch (IOException e) {
+			System.out.println("Error when executing process: " + String.join(" ", cmd));
+			return;
+		}
+
+        BufferedReader consoleOutput = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+
+        String line;
+        try {
+            // readLine works with my \r only update to the screen since Java considers it to be a new-line
+			while ((line = consoleOutput.readLine()) != null) {
+			    System.out.println(line);
+			}
+		} catch (IOException e) {
+			System.out.println("Error while reading console output.");
+		}
+        
+        try {
+			consoleOutput.close();
+		} catch (IOException e) {}
     }
 
     private void initUI() {
