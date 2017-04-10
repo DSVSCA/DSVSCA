@@ -16,6 +16,7 @@ extern "C" {
 AVFormatContext *Format::format_ctx = NULL;  // Format I/O Context ????
 AVStream *Format::audio_stream = NULL;  // Stream structure 
 int Format::audio_stream_index = 0;
+//int Format::video_stream_index = 0;
 AVCodecContext *Format::decoder_ctx = NULL;  // Main API structure
 
 Format::Format(std::string fileName) {  
@@ -56,7 +57,7 @@ int Format::init_target_file(std::string fileName) {
     }
     
     audio_stream_index = av_find_best_stream(format_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
-   
+    //video_stream_index = av_find_best_stream(format_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &decoder, 0); 
     if(audio_stream_index < 0) {
         av_log(NULL, AV_LOG_ERROR, "No audio stream found in the input file\n");
         error = audio_stream_index;
