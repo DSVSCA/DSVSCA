@@ -10,7 +10,7 @@ void print_help() {
 
     std::cout << "Optional arguments:" << std::endl
         << "-h, --help\t\t\tPrints out the help menu specifying all required and optional parameters." << std::endl
-        << "-b, --block-size=BLOCK-SIZE\tSpecifies the block size used when processing the audio. A smaller block size results in better virtualization but takes longer to process." << std::endl
+        << "-b, --block-size=BLOCK-SIZE\tSpecifies the block size used when processing the audio. A smaller block size results in better virtualization but takes longer to process. The default size is " << BLOCK_SIZE << "." << std::endl
         << "-c, --coord-type=TYPE\t\tSpecifies the coordinate system used when specifying virtualized speaker placement. The values can be Cartesian or Spherical. The default value used is Cartesian." << std::endl
         << "-fl, --fl=X,Y,Z\t\t\tSpecifies the x, y, and z or phi, theta, and radius coordinates of the front left speaker. If this value is not specified, the default value of 1, 1, 0 is used." << std::endl
         << "-fc, --fc=X,Y,Z\t\t\tSpecifies the x, y, and z or phi, theta, and radius coordinates of the front center speaker. If this value is not specified, the default value of 1, 0, 0 is used." << std::endl
