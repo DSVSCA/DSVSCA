@@ -1,9 +1,6 @@
 #include "DSVSCA.h"
 
 int DSVSCA::process_filter_graph(process_info info) {
-    FILE *vf;
-
-    const char *vf_filename = "virtualize.aac";
     AVPacket packet, packet0;
     AVFrame *frame = av_frame_alloc();
     AVFrame *filt_frame = av_frame_alloc();
@@ -22,22 +19,21 @@ int DSVSCA::process_filter_graph(process_info info) {
 
     SJoin  *sjoin  = new SJoin(encoder);
     
-    vf = fopen(vf_filename, "wb");
-    if(!vf) {
-        std::cout << "Error opening file" << std::endl;
-    }
-
     long total_duration = info.format->format_ctx->duration / (long)AV_TIME_BASE;
     uint64_t total_sample_count = 0;
     uint64_t samples_completed = 0;
 
     int ret = 0;
 
-    
-
     AVOutputFormat *ofmt = NULL;
     AVFormatContext *ofmt_ctx = NULL;
-    const char *out_filename = "output.mp4";
+
+    size_t index_of_ext = info.video_file_name.find_last_of('.');
+    std::string out_filename_str;
+    if (index_of_ext == std::string::npos) out_filename_str = info.video_file_name + "-virtualized";
+    else out_filename_str = info.video_file_name.substr(0, index_of_ext) + "-virtualized" + info.video_file_name.substr(index_of_ext);
+    const char *out_filename = out_filename_str.c_str();
+
     avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, out_filename);
     if(!ofmt_ctx) {
         av_log(NULL, AV_LOG_ERROR, "Could not create output context!\n");
@@ -249,7 +245,6 @@ int DSVSCA::process_filter_graph(process_info info) {
     if(ofmt_ctx && !(ofmt->flags & AVFMT_NOFILE))
         avio_close(ofmt_ctx->pb);
     avformat_free_context(ofmt_ctx);
-    fclose(vf); 
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
     av_frame_free(&comb_virt_frame);
