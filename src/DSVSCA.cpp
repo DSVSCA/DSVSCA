@@ -130,50 +130,57 @@ int DSVSCA::process_filter_graph(process_info info) {
                         ret = av_buffersink_get_frame(it->second, filt_frame);
                         if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) break;
 
-                        int sample_count = filt_frame->nb_samples;
-                        int sample_rate = filt_frame->sample_rate;
-                        if (total_sample_count == 0) total_sample_count = total_duration * sample_rate;
-                        if (frame_sample_count == 0) frame_sample_count = sample_count;
+                        uint8_t * result_l, * result_r;
 
-                        if (c2v_.count(it->first) == 0) {
-                            float x_y_z[3];
-                            if (info.coords.count(it->first) == 0) Filter::get_coords(it->first, &x_y_z[0], &x_y_z[1], &x_y_z[2]);
-                            else {
-                                x_y_z[0] = info.coords.at(it->first).x;
-                                x_y_z[1] = info.coords.at(it->first).y;
-                                x_y_z[2] = info.coords.at(it->first).z;
+                        if (it->first != Filter::LFE) {
+                            int sample_count = filt_frame->nb_samples;
+                            int sample_rate = filt_frame->sample_rate;
+                            if (total_sample_count == 0) total_sample_count = total_duration * sample_rate;
+                            if (frame_sample_count == 0) frame_sample_count = sample_count;
 
-                                if (info.coord_type == Filter::Spherical) mysofa_s2c(x_y_z);
+                            if (c2v_.count(it->first) == 0) {
+                                float x_y_z[3];
+                                if (info.coords.count(it->first) == 0) Filter::get_coords(it->first, &x_y_z[0], &x_y_z[1], &x_y_z[2]);
+                                else {
+                                    x_y_z[0] = info.coords.at(it->first).x;
+                                    x_y_z[1] = info.coords.at(it->first).y;
+                                    x_y_z[2] = info.coords.at(it->first).z;
+
+                                    if (info.coord_type == Filter::Spherical) mysofa_s2c(x_y_z);
+                                }
+
+                                if (sofa_.hrtf == NULL) {
+                                    Virtualizer * virt = new Virtualizer(info.sofa_file_name.c_str(), 
+                                            sample_rate, x_y_z[0], x_y_z[1], x_y_z[2], info.block_size);
+                                    c2v_.insert(std::make_pair(it->first, virt));
+                                    sofa_ = virt->get_hrtf();
+                                }
+                                else {
+                                    Virtualizer * virt = new Virtualizer(sofa_, sample_rate, 
+                                            x_y_z[0], x_y_z[1], x_y_z[2], info.block_size);
+                                    c2v_.insert(std::make_pair(it->first, virt));
+                                }
                             }
 
-                            if (sofa_.hrtf == NULL) {
-                                Virtualizer * virt = new Virtualizer(info.sofa_file_name.c_str(), 
-                                        sample_rate, x_y_z[0], x_y_z[1], x_y_z[2], info.block_size);
-                                c2v_.insert(std::make_pair(it->first, virt));
-                                sofa_ = virt->get_hrtf();
-                            }
-                            else {
-                                Virtualizer * virt = new Virtualizer(sofa_, sample_rate, 
-                                        x_y_z[0], x_y_z[1], x_y_z[2], info.block_size);
-                                c2v_.insert(std::make_pair(it->first, virt));
-                            }
+                            float * samples = Virtualizer::get_float_samples(filt_frame->extended_data[0],
+                                    info.format->decoder_ctx->sample_fmt, sample_count);
+
+                            float ** float_results = c2v_[it->first]->process(samples, sample_count);
+
+                            result_l = Virtualizer::get_short_samples(float_results[0],
+                                    info.format->decoder_ctx->sample_fmt, sample_count);
+
+                            result_r = Virtualizer::get_short_samples(float_results[1],
+                                    info.format->decoder_ctx->sample_fmt, sample_count);
+
+                            delete[] float_results[0];
+                            delete[] float_results[1];
+                            delete[] float_results;
+                            delete[] samples;
                         }
-
-                        float * samples = Virtualizer::get_float_samples(filt_frame->extended_data[0],
-                                info.format->decoder_ctx->sample_fmt, sample_count);
-
-                        float ** float_results = c2v_[it->first]->process(samples, sample_count);
-
-                        uint8_t * result_l = Virtualizer::get_short_samples(float_results[0],
-                                info.format->decoder_ctx->sample_fmt, sample_count);
-
-                        uint8_t * result_r = Virtualizer::get_short_samples(float_results[1],
-                                info.format->decoder_ctx->sample_fmt, sample_count);
-
-                        delete[] float_results[0];
-                        delete[] float_results[1];
-                        delete[] float_results;
-                        delete[] samples;
+                        else {
+                            result_l = result_r = filt_frame->extended_data[0];
+                        }
 
                         AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, result_r,
                                 result_l);
