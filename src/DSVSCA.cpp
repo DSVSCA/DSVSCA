@@ -10,10 +10,8 @@ int DSVSCA::process_filter_graph(process_info info) {
     AVFrame *comb_virt_frame = av_frame_alloc();
     int got_frame;
 
-
     std::unordered_map<Filter::Channel, Virtualizer*, std::hash<int>> c2v_;
     complete_sofa sofa_;
-
 
     AVPacket packet_out;
     AVPacket comb_packet_out;
@@ -23,7 +21,6 @@ int DSVSCA::process_filter_graph(process_info info) {
             info.format->decoder_ctx->bit_rate, AV_SAMPLE_FMT_FLTP);
 
     SJoin  *sjoin  = new SJoin(encoder);
-    //TestJoin *testjoin = new TestJoin(encoder);
     
     vf = fopen(vf_filename, "wb");
     if(!vf) {
@@ -36,6 +33,54 @@ int DSVSCA::process_filter_graph(process_info info) {
 
     int ret = 0;
 
+    
+
+    AVOutputFormat *ofmt = NULL;
+    AVFormatContext *ofmt_ctx = NULL;
+    const char *out_filename = "output.mp4";
+    avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, out_filename);
+    if(!ofmt_ctx) {
+        av_log(NULL, AV_LOG_ERROR, "Could not create output context!\n");
+        exit(1);
+    }
+
+    ofmt = ofmt_ctx->oformat;
+
+    for(int i = 0; i < info.format->format_ctx->nb_streams; i++) {
+        AVStream *in_stream = info.format->format_ctx->streams[i];
+        AVStream *out_stream = avformat_new_stream(ofmt_ctx, in_stream->codec->codec);
+        if(!out_stream) {
+            av_log(NULL, AV_LOG_ERROR, "Failed to allocate output stream!\n");
+            exit(1);
+        }
+        
+        ret = avcodec_copy_context(out_stream->codec, in_stream->codec);
+        out_stream->codec->codec_tag = 0;
+        if(ret < 0) {
+            av_log(NULL, AV_LOG_ERROR, "Failed to copy context from input to output stream codec context\n");
+            exit(1);
+        }
+        
+        if(ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+            out_stream->codec->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    }
+
+    av_dump_format(ofmt_ctx, 0, out_filename, 1);
+     
+    if(!(ofmt->flags & AVFMT_NOFILE)) {
+        ret = avio_open(&ofmt_ctx->pb, out_filename, AVIO_FLAG_WRITE);
+        if(ret < 0) {
+            av_log(NULL, AV_LOG_ERROR, "Unable to open output file\n");
+            exit(1);
+        }
+    }
+    
+    ret = avformat_write_header(ofmt_ctx, NULL);
+    if(ret < 0) {
+        av_log(NULL, AV_LOG_ERROR, "Error opening file to write header\n");
+        exit(1);
+    }
+
     /* Read all of the packets */
     packet0.data = NULL;
     packet.data = NULL;
@@ -44,6 +89,16 @@ int DSVSCA::process_filter_graph(process_info info) {
             ret = av_read_frame(info.format->format_ctx, &packet);
             if(ret < 0) break;
             packet0 = packet;
+        }
+        
+        //in_stream = ifmt_ctx->streams[packet.stream_index];
+        //out_stream = ofmt_ctx->streams[packet.stream_index];
+        
+        if(packet.stream_index == 0) {
+            ret = av_interleaved_write_frame(ofmt_ctx, &packet0);
+            if(ret < 0) {
+                av_log(NULL, AV_LOG_ERROR, "Error muxing video packet\n");
+            }
         }
 
         if(packet.stream_index == info.format->audio_stream_index) {
@@ -151,18 +206,26 @@ int DSVSCA::process_filter_graph(process_info info) {
                     av_init_packet(&comb_packet_out);
                     comb_packet_out.data = NULL;
                     comb_packet_out.size = 0;
-                   
+                  
                     ret = avcodec_encode_audio2(encoder->codec_ctx, &comb_packet_out, 
                             comb_virt_frame, &got_output);
                     if(ret < 0) {
                         av_log(NULL, AV_LOG_ERROR, "Error encoding comb frame %d\n", ret);  
                         exit(1);
                     }                   
+                
+                    uint8_t* data = comb_packet_out.data;
+
+                    av_copy_packet(&comb_packet_out, &packet0);
                     
-                    fwrite(comb_packet_out.data, 1, comb_packet_out.size, vf);
-                    
+                    comb_packet_out.data = data;
+                    ret = av_interleaved_write_frame(ofmt_ctx, &comb_packet_out);
+                    if(ret < 0) {
+                        av_log(NULL, AV_LOG_ERROR, "Error muxing video packet\n");
+                    }
                     av_free_packet(&comb_packet_out);
                     av_frame_unref(comb_virt_frame);
+                
                 }
 
                 samples_completed += frame_sample_count;
@@ -180,9 +243,19 @@ int DSVSCA::process_filter_graph(process_info info) {
     }
 
     for (auto it = c2v_.begin(); it != c2v_.end(); it++) delete it->second;
-
+    
+    av_write_trailer(ofmt_ctx);
+    avformat_close_input(&info.format->format_ctx);
+    if(ofmt_ctx && !(ofmt->flags & AVFMT_NOFILE))
+        avio_close(ofmt_ctx->pb);
+    avformat_free_context(ofmt_ctx);
     fclose(vf); 
     av_frame_free(&frame);
     av_frame_free(&filt_frame);
     av_frame_free(&comb_virt_frame);
+
+    if(ret < 0 && ret != AVERROR_EOF) {
+        av_log(NULL, AV_LOG_ERROR, "Error occured while closing out: %d\n", ret);
+        return ret;
+    }
 }
