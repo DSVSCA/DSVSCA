@@ -27,7 +27,7 @@ public:
         FC = 2,
         LFE = 3,
         BL = 4,
-        BR = 5,
+        BR = 5
     };
 
     enum Coord_Type {
