@@ -1,4 +1,5 @@
 #include "DSVSCA.h"
+#include "wave_util.h"
 #include <thread>
 #include <chrono>
 
@@ -10,6 +11,7 @@ void print_help() {
 
     std::cout << "Optional arguments:" << std::endl
         << "-h, --help\t\t\tPrints out the help menu specifying all required and optional parameters." << std::endl
+        << "--sample\t\t\tSpecifies that the input is a 16-bit wave sample file. It is used when calibrating the coordinates." << std::endl
         << "-b, --block-size=BLOCK-SIZE\tSpecifies the block size used when processing the audio. A smaller block size results in better virtualization but takes longer to process. The default size is " << BLOCK_SIZE << "." << std::endl
         << "-c, --coord-type=TYPE\t\tSpecifies the coordinate system used when specifying virtualized speaker placement. The values can be Cartesian or Spherical. The default value used is Cartesian." << std::endl
         << "-fl, --fl=X,Y,Z\t\t\tSpecifies the x, y, and z or phi, theta, and radius coordinates of the front left speaker. If this value is not specified, the default value of 1, 1, 0 is used." << std::endl
@@ -44,8 +46,9 @@ coordinate parse_coordinates(std::string coordinates) {
     return to_return;
 }
 
-process_info parse_inputs(int argc, char ** argv) {
+process_info parse_inputs(int argc, char ** argv, bool * is_sample) {
     process_info info;
+    *is_sample = false;
 
     for (int i = 1; i < argc; i++) {
         std::string current_input = std::string(argv[i]);
@@ -106,18 +109,55 @@ process_info parse_inputs(int argc, char ** argv) {
             print_help();
             exit(0);
         }
+        else if (arg_name == "sample") {
+            *is_sample = true;
+            i--;
+        }
     }
 
     return info;
 }
 
 int main(int argc, char ** argv) {
-    process_info info = parse_inputs(argc, argv);
+    bool is_sample;
+    process_info info = parse_inputs(argc, argv, &is_sample);
 
-    if (info.video_file_name.empty() || info.sofa_file_name.empty()) {
+    if (info.video_file_name.empty() || info.sofa_file_name.empty() || (is_sample && info.coords.size() == 0)) {
         std::cout << "A required parameter was not provided." << std::endl << std::endl;
         print_help();
         return 1;
+    }
+
+    if (is_sample) {
+        coordinate c = info.coords.begin()->second;
+        Filter::Channel channel = info.coords.begin()->first;
+        std::string channel_name = "-virtualized";
+
+        switch (channel) {
+            case Filter::FL:
+                channel_name = "-fl";
+                break;
+            case Filter::FR:
+                channel_name = "-fr";
+                break;
+            case Filter::FC:
+                channel_name = "-fc";
+                break;
+            case Filter::BL:
+                channel_name = "-bl";
+                break;
+            case Filter::BR:
+                channel_name = "-br";
+                break;
+        }
+
+        size_t index_of_ext = info.video_file_name.find_last_of('.');
+        std::string out_filename_str;
+        if (index_of_ext == std::string::npos) out_filename_str = info.video_file_name + channel_name;
+        else out_filename_str = info.video_file_name.substr(0, index_of_ext) + channel_name + info.video_file_name.substr(index_of_ext);
+
+        WaveUtil::virtualize(info.video_file_name.c_str(), out_filename_str.c_str(), info.sofa_file_name.c_str(), c.x, c.y, c.z, info.coord_type, info.block_size);
+        return 0;
     }
 
     clock_t begin = clock();

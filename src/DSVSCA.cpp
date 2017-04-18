@@ -34,6 +34,8 @@ int DSVSCA::process_filter_graph(process_info info) {
     else out_filename_str = info.video_file_name.substr(0, index_of_ext) + "-virtualized" + info.video_file_name.substr(index_of_ext);
     const char *out_filename = out_filename_str.c_str();
 
+    float peak = 0;
+
     avformat_alloc_output_context2(&ofmt_ctx, NULL, NULL, out_filename);
     if(!ofmt_ctx) {
         av_log(NULL, AV_LOG_ERROR, "Could not create output context!\n");
@@ -167,6 +169,8 @@ int DSVSCA::process_filter_graph(process_info info) {
 
                             float ** float_results = c2v_[it->first]->process(samples, sample_count);
 
+                            Virtualizer::get_peak(float_results, sample_count, &peak);
+
                             result_l = Virtualizer::get_short_samples(float_results[0],
                                     info.format->decoder_ctx->sample_fmt, sample_count);
 
@@ -180,6 +184,7 @@ int DSVSCA::process_filter_graph(process_info info) {
                         }
                         else {
                             result_l = result_r = filt_frame->extended_data[0];
+                            Virtualizer::get_peak(result_l, info.format->decoder_ctx->sample_fmt, filt_frame->nb_samples, &peak);
                         }
 
                         AVFrame *virt_frame = encoder->new_frame(encoder->codec_ctx, result_r,
@@ -244,6 +249,10 @@ int DSVSCA::process_filter_graph(process_info info) {
             info.progress->store(completion);
         }
     }
+
+    peak = peak / std::ceil(peak);
+    float peak_db = 20 * std::log10(peak);
+    std::cout << "Peak value: " << peak << " Peak dB: " << peak_db << " Need to increase dB by: " << std::abs(peak_db) << std::endl;
 
     for (auto it = c2v_.begin(); it != c2v_.end(); it++) delete it->second;
     

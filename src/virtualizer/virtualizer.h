@@ -38,6 +38,8 @@ public:
 
     static uint8_t * get_short_samples(float * buffer, AVSampleFormat format, int sample_count);
     static float * get_float_samples(uint8_t * buffer, AVSampleFormat format, int sample_count);
+    static void get_peak(float ** float_results, int sample_count, float * max_peak);
+    static void get_peak(uint8_t * buffer, AVSampleFormat format, int sample_count, float * max_peak);
     template<typename T>
     static void store_value(uint8_t * output, int64_t value, int64_t max_val, AVSampleFormat format, int index);
 
