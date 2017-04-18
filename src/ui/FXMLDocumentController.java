@@ -124,7 +124,6 @@ public class FXMLDocumentController implements Initializable {
             double FRy = ((FRBounds.getMinY() - headBounds.getMinY())/(43));
             FRCoordinates[0] = (float)FRx;
             FRCoordinates[1] = (float)FRy;
-            FRCoordinates[1] *= -1;
             FRCoordinates[2] = 0;
             hashmap.put(Channel.FR, FRCoordinates);
             sampleMap.put(Channel.FR, FRCoordinates);
@@ -152,7 +151,6 @@ public class FXMLDocumentController implements Initializable {
             BRCoordinates[0] = (float)BRx;
             BRCoordinates[1] = (float)BRy;
             BRCoordinates[2] = 0;
-            BRCoordinates[1] *= -1;
             hashmap.put(Channel.BR, BRCoordinates);
             sampleMap.put(Channel.BR, BRCoordinates);
             System.out.println("Back Right coordinates are: " + Double.toString(BRx) + ", " + Double.toString(BRy));
