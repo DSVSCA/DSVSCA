@@ -108,7 +108,7 @@ public class FXMLDocumentController implements Initializable {
             Bounds FCBounds = FC.localToScene(FC.getBoundsInLocal());
             Bounds headBounds = head.localToScene(head.getBoundsInLocal());
             double FCx = ((FCBounds.getMinX() - headBounds.getMinX())/(8));
-            double FCy = ((FCBounds.getMinY() - headBounds.getMinY())/(-43));
+            double FCy = ((FCBounds.getMinY() - headBounds.getMinY())/(-43)) - 1;
             FCCoordinates[0] = (float)FCx;
             FCCoordinates[1] = (float)FCy;
             FCCoordinates[2] = 0;
