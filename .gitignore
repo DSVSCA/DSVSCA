@@ -40,6 +40,9 @@
 # Sofa Files
 *.sofa
 
+# Java Files
+*.jar
+
 # Work Directories
 include/
 build/*

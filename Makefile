@@ -19,5 +19,5 @@ clean-deps:
 
 clean:
 	rm -rf ./include
-	find ./build/ -type f ! \( -iname "makefile" -or -iname "*.mp4" -or -iname "*.sofa" -or -iname "*.wav" \) -delete
-	find ./example/ -type f ! \( -iname "makefile" -or -iname "*.mp4" -or -iname "*.sofa" -or -iname "*.wav" -or -iname "*.cpp" -or -iname "*.h" \) -delete
+	find ./build/ -mindepth 1 ! \( -iname "makefile" -or -iname "*.mp4" -or -iname "*.sofa" -or -iname "*.wav" \) -delete
+	find ./example/ -mindepth 1 ! \( -iname "makefile" -or -iname "*.mp4" -or -iname "*.sofa" -or -iname "*.wav" -or -iname "*.cpp" -or -iname "*.h" \) -delete

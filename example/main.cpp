@@ -33,7 +33,7 @@ coordinate parse_coordinates(std::string coordinates) {
         pos = coordinates.find(",", pos);
         std::string coord_str = pos != std::string::npos ? coordinates.substr(last_pos, pos - last_pos) : coordinates.substr(last_pos);
 
-        int coord = atoi(coord_str.c_str());
+        float coord = atof(coord_str.c_str());
         last_pos = pos + 1;
         if (pos + 1 < coordinates.size()) pos++;
 
