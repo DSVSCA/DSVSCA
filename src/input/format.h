@@ -18,6 +18,7 @@ public:
     static AVFormatContext *format_ctx;   
     static AVCodecContext *decoder_ctx;
     static int audio_stream_index;
+    //static int video_stream_index;
     static AVStream *audio_stream;
 };
 

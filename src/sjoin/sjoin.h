@@ -29,14 +29,13 @@ private:
     
     static int init_abuffers_ctx();
     static int init_amix_ctx();
+    static int init_bass_ctx();
     static int init_abuffersink_ctx();
 
-    //static int init_amerge_ctx();
     
     static AVFilterContext *amix_ctx;
-    //static AVFilterContext *amerge_ctx;
+    static AVFilterContext *bass_ctx;
 public:
-    // TODO: Can read from abuffersink as abuffer?
     SJoin(Encoder *enc);
     ~SJoin();
 

@@ -221,3 +221,68 @@ float * Virtualizer::get_float_samples(uint8_t * buffer, AVSampleFormat format, 
 
     return out;
 }
+
+void Virtualizer::get_peak(float ** float_results, int sample_count, float * max_peak) {
+    for (size_t sample = 0; sample < sample_count; sample++) {
+        float left_peak = std::abs(float_results[0][sample]);
+        float right_peak = std::abs(float_results[1][sample]);
+
+        if (*max_peak < left_peak) {
+            *max_peak = left_peak;
+        }
+        if (*max_peak < right_peak) {
+            *max_peak = right_peak;
+        }
+    }
+}
+
+void Virtualizer::get_peak(uint8_t * buffer, AVSampleFormat format, int sample_count, float * max_peak) {
+    int sample_size = av_get_bytes_per_sample(format);
+    int64_t num_signed_bits = sample_size * 8 - 1;
+    int64_t max_val = (1 << num_signed_bits) - 1;
+
+    for (int i = 0; i < sample_count; i++) {
+        int64_t current_val;
+        switch (sample_size) {
+            case 1:
+                // subtract the minimum value of int8_t since we are going from unsigned to signed
+                current_val = buffer[i] + SCHAR_MIN;
+                break;
+
+            case 2:
+                current_val = ((int16_t*)buffer)[i];
+                break;
+
+            case 4:
+                current_val = ((int32_t*)buffer)[i];
+                break;
+
+            case 8:
+                current_val = ((int64_t*)buffer)[i];
+                break;
+        }
+
+        float current_level;
+        switch(format) {
+            case AV_SAMPLE_FMT_U8:
+            case AV_SAMPLE_FMT_S16:
+            case AV_SAMPLE_FMT_S32:
+            case AV_SAMPLE_FMT_U8P:
+            case AV_SAMPLE_FMT_S16P:
+            case AV_SAMPLE_FMT_S32P:
+                current_level = std::abs(current_val / (float)max_val);
+                break;
+            case AV_SAMPLE_FMT_FLT:
+            case AV_SAMPLE_FMT_FLTP:
+            case AV_SAMPLE_FMT_DBL:
+            case AV_SAMPLE_FMT_DBLP:
+                // yes, this is weird but it doesn't work casting it directly to float
+                current_level = *((float*)&current_val);
+                break;
+        }
+
+        if (*max_peak < current_level) {
+            *max_peak = current_level;
+        }
+    }
+}
