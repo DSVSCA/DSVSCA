@@ -1,5 +1,13 @@
 # DSVSCA-Core
 
+## Required Software
+
+* Yasm (version 1.3+)
+* cmake (version 3.5+)
+* make (version 4.1+)
+* g++ (version 5.4+)
+* Java (version 1.8.0+)
+
 ## Compile
 
 In the root directory, run the following command:
@@ -13,6 +21,12 @@ or
 The program and all dependencies should automatically build and compile. All build objects output to the build folder.
 
 The make process produces 3 main files: libDSVSCA.a, libDSVSCA.so, and DSVSCA. Both libDSVSCA.a and libDSVSCA.so are the static and shared DSVSCA libraries that can be linked into other programs. These two libraries can be found in the build folder after compilation. Note that you only need to use one of the libraries for DSVSCA to work since they are the same library but compiled differently.
+
+To compile the Java UI, run this command:
+
+> make ui
+
+Once that command is finished, the DSVSCA.jar file can be found in both the build and example folder. To run it, just use the command: ```java -jar DSVSCA.jar```
 
 ## Running DSVSCA
 
