@@ -8,6 +8,8 @@
 * g++ (version 5.4+)
 * Java (version 1.8.0+)
 
+Note: This has only been run and tested on Ubuntu 16.04 with the above software.
+
 ## Compile
 
 In the root directory, run the following command:
