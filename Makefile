@@ -8,6 +8,16 @@ debug: build-deps
 	$(MAKE) -C ./build
 	$(MAKE) -C ./example -f Makefile debug
 
+ui:
+	$(MAKE) -C ./src -f Makefile ui-default
+	$(MAKE) -C ./build -f Makefile ui
+	$(MAKE) -C ./example -f Makefile ui
+
+ui-debug:
+	$(MAKE) -C ./src -f Makefile ui-debug
+	$(MAKE) -C ./build -f Makefile ui
+	$(MAKE) -C ./example -f Makefile ui
+
 make-dirs:
 	if [ ! -d "./include" ]; then mkdir include; fi
 

@@ -108,7 +108,7 @@ public class FXMLDocumentController implements Initializable {
             Bounds FCBounds = FC.localToScene(FC.getBoundsInLocal());
             Bounds headBounds = head.localToScene(head.getBoundsInLocal());
             double FCx = ((FCBounds.getMinX() - headBounds.getMinX())/(8));
-            double FCy = ((FCBounds.getMinY() - headBounds.getMinY())/(-43));
+            double FCy = ((FCBounds.getMinY() - headBounds.getMinY())/(-43)) - 1;
             FCCoordinates[0] = (float)FCx;
             FCCoordinates[1] = (float)FCy;
             FCCoordinates[2] = 0;
@@ -121,7 +121,7 @@ public class FXMLDocumentController implements Initializable {
             Bounds FRBounds = FR.localToScene(FR.getBoundsInLocal());
             Bounds headBounds = head.localToScene(head.getBoundsInLocal());
             double FRx = ((FRBounds.getMinX() - headBounds.getMinX())/(50));
-            double FRy = ((FRBounds.getMinY() - headBounds.getMinY())/(-43));
+            double FRy = ((FRBounds.getMinY() - headBounds.getMinY())/(43));
             FRCoordinates[0] = (float)FRx;
             FRCoordinates[1] = (float)FRy;
             FRCoordinates[2] = 0;
@@ -147,7 +147,7 @@ public class FXMLDocumentController implements Initializable {
             Bounds BRBounds = BR.localToScene(BR.getBoundsInLocal());
             Bounds headBounds = head.localToScene(head.getBoundsInLocal());
             double BRx = ((BRBounds.getMinX() - headBounds.getMinX())/(50));
-            double BRy = ((BRBounds.getMinY() - headBounds.getMinY())/(50));
+            double BRy = ((BRBounds.getMinY() - headBounds.getMinY())/(-50));
             BRCoordinates[0] = (float)BRx;
             BRCoordinates[1] = (float)BRy;
             BRCoordinates[2] = 0;

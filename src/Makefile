@@ -7,7 +7,6 @@ default: copy-headers
 	$(MAKE) -C ./input
 	$(MAKE) -C ./virtualizer
 	$(MAKE) -C ./encoder
-	$(MAKE) -C ./ui
 	$(MAKE) -C ./wave_util
 	g++ $(FLAGS) -c DSVSCA.cpp -o $(BUILD)DSVSCA.o
 
@@ -16,9 +15,14 @@ debug: copy-headers
 	$(MAKE) -C ./input -f Makefile debug
 	$(MAKE) -C ./virtualizer -f Makefile debug
 	$(MAKE) -C ./encoder -f Makefile debug
-	$(MAKE) -C ./ui -f Makefile debug
 	$(MAKE) -C ./wave_util -f Makefile debug
 	g++ -g $(FLAGS) -c DSVSCA.cpp -o $(BUILD)DSVSCA.o
+
+ui-default:
+	$(MAKE) -C ./ui
+
+ui-debug:
+	$(MAKE) -C ./ui -f Makefile debug
 
 copy-headers:
 	$(MAKE) -C ./sjoin -f Makefile copy-headers
