@@ -13,6 +13,8 @@ extern "C" {
 #include <libavutil/channel_layout.h>
 }
 
+#define __STDC_FORMAT_MACROS
+
 #ifndef SJOIN_H
 #define SJOIN_H
 
