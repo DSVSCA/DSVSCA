@@ -1,6 +1,6 @@
 FFMPEG_EXISTS:=$(shell whereis -b libavcodec.a | grep -q "libavcodec.a" && whereis -b libavdevice.a | grep -q "libavdevice.a" && whereis -b libavfilter.a | grep -q "libavfilter.a" && whereis -b libavformat.a | grep -q "libavformat.a" && whereis -b libavutil.a | grep -q "libavutil.a" && whereis -b libswresample.a | grep -q "libswresample.a" && whereis -b libswscale.a | grep -q "libswscale.a"; echo $$?)
 
-default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a libmysofa.a
+default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a libmysofa.a mpv-deps
 	cp libFFTConvolver.a ../build/
 	cp FFTConvolver/*.h ../include/
 ifeq ($(FFMPEG_EXISTS),1)
@@ -29,6 +29,11 @@ ifeq ($(FFMPEG_EXISTS),1)
 endif
 	cp libmysofa.a ../build/
 	cp libmysofa-master/src/hrtf/mysofa.h ../include/
+
+mpv-deps:
+	if ! dpkg -l | grep libva-dev -c >> /dev/null; then sudo apt-get install libva-dev; fi
+	if ! dpkg -l | grep liblzma-dev -c >> /dev/null; then sudo apt-get install liblzma-dev; fi
+	if ! dpkg -l | grep libbz2-dev -c >> /dev/null; then sudo apt-get install libbz2-dev; fi
 
 libFFTConvolver.a:
 	wget https://github.com/HiFi-LoFi/FFTConvolver/archive/non-uniform.zip
