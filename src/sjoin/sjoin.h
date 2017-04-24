@@ -2,6 +2,7 @@
 #include <vector>
 #include <fstream>
 #include <map>
+#include <inttypes.h>
 #include "encoder.h"
 extern "C" {
 #include <libavformat/avformat.h>

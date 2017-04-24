@@ -104,7 +104,7 @@ int SJoin::init_abuffers_ctx() {
     std::cout << "      - #channels: " << encoder->codec_ctx->channels << std::endl;
     
     snprintf(strbuf, sizeof(strbuf),
-            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
+            "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%" PRIx64,
             time_base.num, time_base.den, encoder->codec_ctx->sample_rate,
             av_get_sample_fmt_name(encoder->codec_ctx->sample_fmt),
             encoder->codec_ctx->channel_layout);

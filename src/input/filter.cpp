@@ -154,7 +154,7 @@ int Filter::init_abuffer_ctx() {
 
     // Create an abuffer filter
     snprintf(strbuf, sizeof(strbuf),
-             "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64, 
+             "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%" PRIx64, 
              time_base.num, time_base.den, format->decoder_ctx->sample_rate,
              av_get_sample_fmt_name(format->decoder_ctx->sample_fmt),
              format->decoder_ctx->channel_layout);
