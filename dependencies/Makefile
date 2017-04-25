@@ -1,9 +1,16 @@
-FFMPEG_EXISTS:=$(shell whereis -b libavcodec.a | grep -q "libavcodec.a" && whereis -b libavdevice.a | grep -q "libavdevice.a" && whereis -b libavfilter.a | grep -q "libavfilter.a" && whereis -b libavformat.a | grep -q "libavformat.a" && whereis -b libavutil.a | grep -q "libavutil.a" && whereis -b libswresample.a | grep -q "libswresample.a" && whereis -b libswscale.a | grep -q "libswscale.a"; echo $$?)
+CODEC_EXISTS:=$(shell whereis -b libavcodec.a | grep -q "libavcodec.a"; echo $$?)
+DEVICE_EXISTS:=$(shell whereis -b libavdevice.a | grep -q "libavdevice.a"; echo $$?)
+FILTER_EXISTS:=$(shell whereis -b libavfilter.a | grep -q "libavfilter.a"; echo $$?)
+FORMAT_EXISTS:=$(shell whereis -b libavformat.a | grep -q "libavformat.a"; echo $$?)
+AVUTIL_EXISTS:=$(shell whereis -b libavutil.a | grep -q "libavutil.a"; echo $$?)
+RESAMPLE_EXISTS:=$(shell whereis -b libswresample.a | grep -q "libswresample.a"; echo $$?)
+SCALE_EXISTS:=$(shell whereis -b libswscale.a | grep -q "libswscale.a"; echo $$?)
+FFMPEG_EXISTS:=$($(CODEC_EXISTS) && $(DEVICE_EXISTS) && $(FILTER_EXISTS) && $(FORMAT_EXISTS) && $(AVUTIL_EXISTS) && $(RESAMPLE_EXISTS) && $(SCALE_EXISTS))
 
 default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a libmysofa.a mpv-deps
 	cp libFFTConvolver.a ../build/
 	cp FFTConvolver/*.h ../include/
-ifeq ($(FFMPEG_EXISTS),1)
+ifneq ($(FFMPEG_EXISTS),0)
 	@echo "FFMPEG is not installed so we will use our local build."
 	cp libavcodec.a ../build/
 	cp libavdevice.a ../build/
@@ -47,8 +54,29 @@ libFFTConvolver.a:
 		cp *.h ../../include/
 
 libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a:
-ifeq ($(FFMPEG_EXISTS),1)
-	@echo "FFMPEG is not installed so we will build it locally."
+ifneq ($(CODEC_EXISTS),0)
+	@echo "libavcodec.a could not be found."
+endif
+ifneq ($(DEVICE_EXISTS),0)
+	@echo "libavdevice.a could not be found."
+endif
+ifneq ($(FILTER_EXISTS),0)
+	@echo "libavfilter.a could not be found."
+endif
+ifneq ($(FORMAT_EXISTS),0)
+	@echo "libavformat.a could not be found."
+endif
+ifneq ($(AVUTIL_EXISTS),0)
+	@echo "libavutil.a could not be found."
+endif
+ifneq ($(RESAMPLE_EXISTS),0)
+	@echo "libswresample.a could not be found."
+endif
+ifneq ($(SCALE_EXISTS),0)
+	@echo "libswscale.a could not be found."
+endif
+ifneq ($(FFMPEG_EXISTS),0)
+	@echo "Required FFMPEG libraries are not installed so we will build it locally."
 	wget https://ffmpeg.org/releases/ffmpeg-2.8.11.tar.xz
 	tar -xvf ffmpeg-2.8.11.tar.xz
 	rm ffmpeg-2.8.11.tar.xz
