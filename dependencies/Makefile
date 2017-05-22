@@ -1,3 +1,6 @@
+UNAME := $(shell uname)
+MPV_INSTALLED := $(shell brew ls --versions mpv);
+
 CODEC_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libavcodec.a | grep -q "libavcodec.a"; echo $$?)
 DEVICE_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libavdevice.a | grep -q "libavdevice.a"; echo $$?)
 FILTER_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libavfilter.a | grep -q "libavfilter.a"; echo $$?)
@@ -59,9 +62,14 @@ endif
 	cp libmysofa-master/src/hrtf/mysofa.h ../include/
 
 mpv-deps:
+ifeq ($(UNAME),Linux)
 	if ! dpkg -l | grep libva-dev -c >> /dev/null; then sudo apt-get install libva-dev; fi
 	if ! dpkg -l | grep liblzma-dev -c >> /dev/null; then sudo apt-get install liblzma-dev; fi
 	if ! dpkg -l | grep libbz2-dev -c >> /dev/null; then sudo apt-get install libbz2-dev; fi
+endif
+ifeq ($(UNAME),Darwin)
+	if ! [ $(MPV_INSTALLED) = "" ]; then brew install mpv; fi
+endif
 
 libFFTConvolver.a:
 	wget https://github.com/HiFi-LoFi/FFTConvolver/archive/non-uniform.zip
