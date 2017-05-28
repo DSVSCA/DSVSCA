@@ -2,7 +2,12 @@ UNAME := $(shell uname)
 
 default: build-deps
 	$(MAKE) -C ./src
-	$(MAKE) -C ./build
+ifeq ($(UNAME),Darwin)
+	$(MAKE) darwin -C ./build
+endif
+ifeq ($(UNAME),Linux)
+	$(MAKE) -C ./build	
+endif
 	$(MAKE) -C ./example
 
 debug: build-deps

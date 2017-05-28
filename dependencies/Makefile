@@ -64,6 +64,38 @@ endif
 
 darwin: libFFTConvolver.a libmysofa.a
 	brew install ffmpeg
+	ar rc libavcodec.a /usr/local/include/libavcodec/*
+	ar rc libavdevice.a /usr/local/include/libavdevice/*
+	ar rc libavfilter.a /usr/local/include/libavfilter/*
+	ar rc libavformat.a /usr/local/include/libavformat/*
+	ar rc libavutil.a /usr/local/include/libavutil/*
+	ar rc libswresample.a /usr/local/include/libswresample/*
+	ar rc libswscale.a /usr/local/include/libswscale/*
+	cp libavcodec.a ../build/
+	cp libavdevice.a ../build/
+	cp libavfilter.a ../build/
+	cp libavformat.a ../build/
+	cp libavutil.a ../build/
+	cp libswresample.a ../build/
+	cp libswscale.a ../build/
+	cp libFFTConvolver.a ../build/
+	cp FFTConvolver/*.h ../include/
+	cp libmysofa.a ../build/
+	cp libmysofa-master/src/hrtf/mysofa.h ../include/
+	if [ ! -d "../include/libavcodec" ]; then mkdir ../include/libavcodec; fi
+	cp /usr/local/include/libavcodec/*.h ../include/libavcodec/
+	if [ ! -d "../include/libavdevice" ]; then mkdir ../include/libavdevice; fi
+	cp /usr/local/include/libavdevice/*.h ../include/libavdevice/
+	if [ ! -d "../include/libavfilter" ]; then mkdir ../include/libavfilter; fi
+	cp /usr/local/include/libavfilter/*.h ../include/libavfilter/
+	if [ ! -d "../include/libavformat" ]; then mkdir ../include/libavformat; fi
+	cp /usr/local/include/libavformat/*.h ../include/libavformat/
+	if [ ! -d "../include/libavutil" ]; then mkdir ../include/libavutil; fi
+	cp /usr/local/include/libavutil/*.h ../include/libavutil/
+	if [ ! -d "../include/libswresample" ]; then mkdir ../include/libswresample; fi
+	cp /usr/local/include/libswresample/*.h ../include/libswresample/
+	if [ ! -d "../include/libswscale" ]; then mkdir ../include/libswscale; fi
+	cp /usr/local/include/libswscale/*.h ../include/libswscale/
 
 libFFTConvolver.a:
 	wget https://github.com/HiFi-LoFi/FFTConvolver/archive/non-uniform.zip
