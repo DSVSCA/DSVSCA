@@ -1,4 +1,5 @@
 UNAME := $(shell uname)
+CC := g++-5
 
 ifeq ($(UNAME),Linux)
 CODEC_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libavcodec.a | grep -q "libavcodec.a"; echo $$?)
@@ -77,7 +78,7 @@ libFFTConvolver.a:
 	rm non-uniform.zip
 	mv FFTConvolver-non-uniform FFTConvolver
 	cd FFTConvolver;\
-		g++ -std=c++11 -fpic -c *.cpp;\
+		$(CC) -std=c++11 -fpic -c *.cpp;\
 		ar rcs libFFTConvolver.a *.o;\
 		mv libFFTConvolver.a ../;\
 		cp *.h ../../include/
