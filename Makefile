@@ -1,3 +1,5 @@
+UNAME := $(shell uname)
+
 default: build-deps
 	$(MAKE) -C ./src
 	$(MAKE) -C ./build
@@ -22,7 +24,12 @@ make-dirs:
 	if [ ! -d "./include" ]; then mkdir include; fi
 
 build-deps: make-dirs
+ifeq ($(UNAME),Darwin)
+	$(MAKE) darwin -C ./dependencies
+endif
+ifeq ($(UNAME),Linux)
 	$(MAKE) -C ./dependencies
+endif
 
 clean-deps:
 	$(MAKE) -C ./dependencies -f Makefile clean

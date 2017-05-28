@@ -1,6 +1,6 @@
 UNAME := $(shell uname)
-MPV_INSTALLED := $(shell brew ls --versions mpv);
 
+ifeq ($(UNAME),Linux)
 CODEC_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libavcodec.a | grep -q "libavcodec.a"; echo $$?)
 DEVICE_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libavdevice.a | grep -q "libavdevice.a"; echo $$?)
 FILTER_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libavfilter.a | grep -q "libavfilter.a"; echo $$?)
@@ -9,8 +9,9 @@ AVUTIL_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b lib
 RESAMPLE_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libswresample.a | grep -q "libswresample.a"; echo $$?)
 SCALE_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libswscale.a | grep -q "libswscale.a"; echo $$?)
 FFMPEG_EXISTS:=$($(CODEC_EXISTS) && $(DEVICE_EXISTS) && $(FILTER_EXISTS) && $(FORMAT_EXISTS) && $(AVUTIL_EXISTS) && $(RESAMPLE_EXISTS) && $(SCALE_EXISTS))
+endif
 
-default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a libmysofa.a mpv-deps
+default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a libmysofa.a mpv-deps 
 	cp libFFTConvolver.a ../build/
 	cp FFTConvolver/*.h ../include/
 ifneq ($(CODEC_EXISTS),0)
@@ -61,15 +62,8 @@ endif
 	cp libmysofa.a ../build/
 	cp libmysofa-master/src/hrtf/mysofa.h ../include/
 
-mpv-deps:
-ifeq ($(UNAME),Linux)
-	if ! dpkg -l | grep libva-dev -c >> /dev/null; then sudo apt-get install libva-dev; fi
-	if ! dpkg -l | grep liblzma-dev -c >> /dev/null; then sudo apt-get install liblzma-dev; fi
-	if ! dpkg -l | grep libbz2-dev -c >> /dev/null; then sudo apt-get install libbz2-dev; fi
-endif
-ifeq ($(UNAME),Darwin)
-	if ! [ $(MPV_INSTALLED) = "" ]; then brew install mpv; fi
-endif
+darwin: libFFTConvolver.a libmysofa.a
+	brew install ffmpeg
 
 libFFTConvolver.a:
 	wget https://github.com/HiFi-LoFi/FFTConvolver/archive/non-uniform.zip
@@ -128,6 +122,14 @@ libmysofa.a:
 		CFLAGS="-fpic" CXXFLAGS="-fpic" cmake -DCMAKE_BUILD_TYPE=Debug ..;\
 		make mysofa-static
 	cp libmysofa-master/build/src/libmysofa.a ./
+
+mpv-deps:
+ifeq ($(UNAME), Darwin)
+	$(error "You're using a mac! Use 'make darwin'!")
+endif
+	if ! dpkg -l | grep libva-dev -c >> /dev/null; then sudo apt-get install libva-dev; fi
+	if ! dpkg -l | grep liblzma-dev -c >> /dev/null; then sudo apt-get install liblzma-dev; fi
+	if ! dpkg -l | grep libbz2-dev -c >> /dev/null; then sudo apt-get install libbz2-dev; fi
 
 clean:
 	rm -rf FFTConvolver libFFTConvolver.a
