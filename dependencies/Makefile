@@ -10,6 +10,9 @@ RESAMPLE_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b l
 SCALE_EXISTS:=$(shell PATH="$(PATH):/usr/lib/x86_64-linux-gnu/"; whereis -b libswscale.a | grep -q "libswscale.a"; echo $$?)
 FFMPEG_EXISTS:=$($(CODEC_EXISTS) && $(DEVICE_EXISTS) && $(FILTER_EXISTS) && $(FORMAT_EXISTS) && $(AVUTIL_EXISTS) && $(RESAMPLE_EXISTS) && $(SCALE_EXISTS))
 endif
+ifeq ($(UNAME),Darwin)
+FFMPEG_EXISTS:=$(shell which ffmpeg; echo $$?)
+endif
 
 default: libFFTConvolver.a libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a libmysofa.a mpv-deps 
 	cp libFFTConvolver.a ../build/
@@ -62,40 +65,11 @@ endif
 	cp libmysofa.a ../build/
 	cp libmysofa-master/src/hrtf/mysofa.h ../include/
 
-darwin: libFFTConvolver.a libmysofa.a
-	brew install ffmpeg
-	ar rc libavcodec.a /usr/local/include/libavcodec/*
-	ar rc libavdevice.a /usr/local/include/libavdevice/*
-	ar rc libavfilter.a /usr/local/include/libavfilter/*
-	ar rc libavformat.a /usr/local/include/libavformat/*
-	ar rc libavutil.a /usr/local/include/libavutil/*
-	ar rc libswresample.a /usr/local/include/libswresample/*
-	ar rc libswscale.a /usr/local/include/libswscale/*
-	cp libavcodec.a ../build/
-	cp libavdevice.a ../build/
-	cp libavfilter.a ../build/
-	cp libavformat.a ../build/
-	cp libavutil.a ../build/
-	cp libswresample.a ../build/
-	cp libswscale.a ../build/
+darwin: darwin-ffmpeg libFFTConvolver.a libmysofa.a
 	cp libFFTConvolver.a ../build/
 	cp FFTConvolver/*.h ../include/
 	cp libmysofa.a ../build/
 	cp libmysofa-master/src/hrtf/mysofa.h ../include/
-	if [ ! -d "../include/libavcodec" ]; then mkdir ../include/libavcodec; fi
-	cp /usr/local/include/libavcodec/*.h ../include/libavcodec/
-	if [ ! -d "../include/libavdevice" ]; then mkdir ../include/libavdevice; fi
-	cp /usr/local/include/libavdevice/*.h ../include/libavdevice/
-	if [ ! -d "../include/libavfilter" ]; then mkdir ../include/libavfilter; fi
-	cp /usr/local/include/libavfilter/*.h ../include/libavfilter/
-	if [ ! -d "../include/libavformat" ]; then mkdir ../include/libavformat; fi
-	cp /usr/local/include/libavformat/*.h ../include/libavformat/
-	if [ ! -d "../include/libavutil" ]; then mkdir ../include/libavutil; fi
-	cp /usr/local/include/libavutil/*.h ../include/libavutil/
-	if [ ! -d "../include/libswresample" ]; then mkdir ../include/libswresample; fi
-	cp /usr/local/include/libswresample/*.h ../include/libswresample/
-	if [ ! -d "../include/libswscale" ]; then mkdir ../include/libswscale; fi
-	cp /usr/local/include/libswscale/*.h ../include/libswscale/
 
 libFFTConvolver.a:
 	wget https://github.com/HiFi-LoFi/FFTConvolver/archive/non-uniform.zip
@@ -108,7 +82,43 @@ libFFTConvolver.a:
 		mv libFFTConvolver.a ../;\
 		cp *.h ../../include/
 
+darwin-ffmpeg:
+	@echo $(FFMPEG_EXISTS)
+ifeq ($(FFMPEG_EXISTS), 1)
+	@echo "FFMPEG does not exist in /usr/local/include/ so installing it ourselves"
+	wget https://ffmpeg.org/releases/ffmpeg-2.8.11.tar.xz
+	tar -xvf ffmpeg-2.8.11.tar.xz
+	rm ffmpeg-2.8.11.tar.xz
+	cd ffmpeg-2.8.11; ./configure --enable-static --enable-pic --disable-opencl
+	$(MAKE) -C ffmpeg-2.8.11
+	$(MAKE) install -C ffmpeg-2.8.11
+endif
+	cp ffmpeg-2.8.11/libavcodec/libavcodec.a ../build/
+	cp ffmpeg-2.8.11/libavdevice/libavdevice.a ../build/
+	cp ffmpeg-2.8.11/libavfilter/libavfilter.a ../build/
+	cp ffmpeg-2.8.11/libavformat/libavformat.a ../build/
+	cp ffmpeg-2.8.11/libavutil/libavutil.a ../build/
+	cp ffmpeg-2.8.11/libswresample/libswresample.a ../build/
+	cp ffmpeg-2.8.11/libswscale/libswscale.a ../build/
+	if [ ! -d "../include/libavcodec" ]; then mkdir ../include/libavcodec; fi
+	cp ffmpeg-2.8.11/libavcodec/*.h ../include/libavcodec/
+	if [ ! -d "../include/libavdevice" ]; then mkdir ../include/libavdevice; fi
+	cp ffmpeg-2.8.11/libavdevice/*.h ../include/libavdevice/
+	if [ ! -d "../include/libavfilter" ]; then mkdir ../include/libavfilter; fi
+	cp ffmpeg-2.8.11/libavfilter/*.h ../include/libavfilter/
+	if [ ! -d "../include/libavformat" ]; then mkdir ../include/libavformat; fi
+	cp ffmpeg-2.8.11/libavformat/*.h ../include/libavformat/
+	if [ ! -d "../include/libavutil" ]; then mkdir ../include/libavutil; fi
+	cp ffmpeg-2.8.11/libavutil/*.h ../include/libavutil/
+	if [ ! -d "../include/libswresample" ]; then mkdir ../include/libswresample; fi
+	cp ffmpeg-2.8.11/libswresample/*.h ../include/libswresample/
+	if [ ! -d "../include/libswscale" ]; then mkdir ../include/libswscale; fi
+	cp ffmpeg-2.8.11/libswscale/*.h ../include/libswscale/
+
 libavcodec.a libavdevice.a libavfilter.a libavformat.a libavutil.a libswresample.a libswscale.a:
+ifeq ($(UNAME), Darwin)
+	$(error "You're using a mac! Use 'make darwin'!")
+endif
 ifneq ($(CODEC_EXISTS),0)
 	@echo "libavcodec.a could not be found."
 endif
@@ -156,9 +166,6 @@ libmysofa.a:
 	cp libmysofa-master/build/src/libmysofa.a ./
 
 mpv-deps:
-ifeq ($(UNAME), Darwin)
-	$(error "You're using a mac! Use 'make darwin'!")
-endif
 	if ! dpkg -l | grep libva-dev -c >> /dev/null; then sudo apt-get install libva-dev; fi
 	if ! dpkg -l | grep liblzma-dev -c >> /dev/null; then sudo apt-get install liblzma-dev; fi
 	if ! dpkg -l | grep libbz2-dev -c >> /dev/null; then sudo apt-get install libbz2-dev; fi

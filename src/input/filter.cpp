@@ -198,10 +198,9 @@ int Filter::init_abuffersink_ctx() {
 
     for(int i = 0; i < channelsplit_ctx->nb_outputs; i++) {
         AVFilterContext *sink_ctx = NULL;
-        //const char *name = channelsplit_ctx->output_pads[i].name;
-        const char *name = "FL";
+        const char *name = channelsplit_ctx->output_pads[i].name;
         error = avfilter_graph_create_filter(&sink_ctx, abuffersink,
-                NULL, NULL, NULL, filter_graph);
+                name, NULL, NULL, filter_graph);
 
          if(error < 0) {
             av_log(NULL, AV_LOG_ERROR, "error creating filter sink \n");

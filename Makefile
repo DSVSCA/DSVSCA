@@ -1,6 +1,7 @@
 UNAME := $(shell uname)
 
 default: build-deps
+	$(shell g++ -v)
 	$(MAKE) -C ./src
 ifeq ($(UNAME),Darwin)
 	$(MAKE) darwin -C ./build
