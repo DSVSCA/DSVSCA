@@ -1,4 +1,4 @@
-# DSVSCA-Core
+# DSVS Conversion Application
 
 ## Required Software
 
@@ -33,6 +33,8 @@ Once that command is finished, the DSVSCA.jar file can be found in both the buil
 ## Running DSVSCA
 
 DSVSCA is a command line program compiled in the example folder and allows for easy use of DSVSCA using the parameters below. Also available in the example folder is the Java DSVSCA GUI. It can be run using ```java -jar DSVSCA.jar``` or double clicking on DSVSCA.jar.
+
+Note: DSVSCA only supports 5.1 AAC audio currently. 
 
 ```
 Mandatory arguments:
